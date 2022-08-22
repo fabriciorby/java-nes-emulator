@@ -2,6 +2,8 @@ package me.fabriciorby.nes.cpu;
 
 import me.fabriciorby.nes.Bus;
 
+import static me.fabriciorby.nes.cpu.StatusRegister.*;
+
 public class Cpu {
 
     private Bus bus;
@@ -38,6 +40,10 @@ public class Cpu {
         return ((this.statusRegister & statusRegister.bit) > 0) ? 1 : 0;
     }
 
+    public boolean getBooleanFlag(StatusRegister statusRegister) {
+        return (this.statusRegister & statusRegister.bit) > 0;
+    }
+
     private void setFlag(StatusRegister statusRegister, boolean value) {
         if (value) {
             this.statusRegister |= statusRegister.bit;
@@ -51,10 +57,10 @@ public class Cpu {
             Debugger debugger = new Debugger(this);
             operationCode = read(programCounter);
             programCounter++;
-            setFlag(StatusRegister.UNUSED, true);
+            setFlag(UNUSED, true);
             cycles += lookupInstructions[operationCode].runAndGetCycles();
 
-            setFlag(StatusRegister.UNUSED, true);
+            setFlag(UNUSED, true);
             debugger.log(lookupInstructions[operationCode]);
         }
         cycles--;
@@ -72,7 +78,7 @@ public class Cpu {
         xRegister = 0;
         yRegister = 0;
         stackPointer = 0xFD;
-        statusRegister = StatusRegister.UNUSED.bit;
+        statusRegister = UNUSED.bit;
 
         addressRelative = 0x0000;
         addressAbsolute = 0x0000;
@@ -82,7 +88,7 @@ public class Cpu {
     }
 
     public void interruptRequestSignal() {
-        if (getFlag(StatusRegister.DISABLE_INTERRUPTS) == 0) {
+        if (getFlag(DISABLE_INTERRUPTS) == 0) {
             interrupt(0xFFFE);
             cycles = 7;
         }
@@ -99,9 +105,9 @@ public class Cpu {
         write(0x0100 + stackPointer, programCounter & 0x00FF);
         stackPointer--;
 
-        setFlag(StatusRegister.BREAK, false);
-        setFlag(StatusRegister.UNUSED, true);
-        setFlag(StatusRegister.DISABLE_INTERRUPTS, true);
+        setFlag(BREAK, false);
+        setFlag(UNUSED, true);
+        setFlag(DISABLE_INTERRUPTS, true);
         write(0x0100 + stackPointer, statusRegister);
         stackPointer--;
 
@@ -226,11 +232,11 @@ public class Cpu {
 
     int ADC() { // Add Memory to Accumulator with Carry
         fetch();
-        int temp = accumulator + fetched + getFlag(StatusRegister.CARRY);
-        setFlag(StatusRegister.CARRY, temp > 255);
-        setFlag(StatusRegister.ZERO, (temp & 0x00FF) == 0);
-        setFlag(StatusRegister.NEGATIVE, (temp & 0x80) != 0);
-        setFlag(StatusRegister.OVERFLOW, ((~(accumulator ^ fetched) & (accumulator ^ temp)) & 0x0080) != 0);
+        int temp = accumulator + fetched + getFlag(CARRY);
+        setFlag(CARRY, temp > 255);
+        setFlag(ZERO, (temp & 0x00FF) == 0);
+        setFlag(NEGATIVE, (temp & 0x80) != 0);
+        setFlag(OVERFLOW, ((~(accumulator ^ fetched) & (accumulator ^ temp)) & 0x0080) != 0);
         accumulator = temp & 0x00FF;
         return 1;
     }
@@ -238,21 +244,35 @@ public class Cpu {
     int AND() {
         fetch();
         accumulator = accumulator & fetched;
-        setFlag(StatusRegister.ZERO, accumulator == 0x00);
-        setFlag(StatusRegister.NEGATIVE, (accumulator & 0x80) != 0);
+        setFlag(ZERO, accumulator == 0x00);
+        setFlag(NEGATIVE, (accumulator & 0x80) != 0);
         return 1;
     } // "AND" Memory with Accumulator
 
     int ASL() {
+        fetch();
+        int temp = fetched << 1;
+        setFlag(CARRY, (temp & 0xFF00) > 0);
+        setFlag(ZERO, (temp & 0x00FF) == 0x00);
+        setFlag(NEGATIVE, (temp & 0x80) != 0);
+        if (lookupInstructions[operationCode].isIMP()) {
+            accumulator = temp & 0x00FF;
+        } else {
+            write(addressAbsolute, temp & 0x00FF);
+        }
         return 0;
     } // Shift Left One Bit (Memory or Accumulator)
 
     int BCC() {
-        return 0;
+        return B(CARRY, false);
     } // Branch on Carry Clear
 
     int BCS() {
-        if (getFlag(StatusRegister.CARRY) == 1) {
+        return B(CARRY, true);
+    } // Branch on Carry Set
+
+    private int B(StatusRegister statusRegister, boolean flag ) {
+        if (getBooleanFlag(statusRegister) == flag) {
             cycles++;
             addressAbsolute = programCounter + addressRelative;
             if ((addressAbsolute & 0xFF00) != (programCounter & 0xFF00)) {
@@ -261,90 +281,105 @@ public class Cpu {
             programCounter = addressAbsolute;
         }
         return 0;
-    } // Branch on Carry Set
+    }
 
     int BEQ() {
-        return 0;
+        return B(ZERO, true);
     } // Branch on Result Zero
 
     int BIT() {
+        fetch();
+        int temp = accumulator & fetched;
+        setFlag(ZERO, (temp & 0x00FF) == 0x00);
+        setFlag(NEGATIVE, (fetched & (1 << 7)) != 0);
+        setFlag(OVERFLOW, (fetched & (1 << 6)) != 0);
         return 0;
     } // Test Bits in Memory with Accumulator
 
     int BMI() {
-        return 0;
+        return B(NEGATIVE, true);
     } // Branch on Result Minus
 
     int BNE() {
-        if (getFlag(StatusRegister.ZERO) == 0) {
-            cycles++;
-            addressAbsolute = programCounter + addressRelative;
-            if ((addressAbsolute & 0xFF00) != (programCounter & 0xFF00)) {
-                cycles++;
-            }
-            programCounter = addressAbsolute;
-        }
-        return 0;
+        return B(ZERO, false);
     } // Branch on Result not Zero
 
     int BPL() {
-        return 0;
+        return B(NEGATIVE, false);
     } // Branch on Result Plus
 
     int BRK() {
         programCounter++;
-        setFlag(StatusRegister.DISABLE_INTERRUPTS, true);
+        setFlag(DISABLE_INTERRUPTS, true);
         write(0x0100 + stackPointer, (programCounter >> 8) & 0x00FF);
         stackPointer--;
         write(0x0100 + stackPointer, programCounter & 0x00FF);
         stackPointer--;
 
-        setFlag(StatusRegister.BREAK, true);
+        setFlag(BREAK, true);
         write(0x0100 + stackPointer, statusRegister);
-        setFlag(StatusRegister.BREAK, false);
+        setFlag(BREAK, false);
 
         programCounter = read(0xFFFE) | (read(0xFFFF) << 8);
         return 0;
     } // Force Break
 
     int BVC() {
-        return 0;
+        return B(OVERFLOW, false);
     } // Branch on Overflow Clear
 
     int BVS() {
-        return 0;
+        return B(OVERFLOW, true);
     } // Branch on Overflow Set
 
     int CLC() {
-        setFlag(StatusRegister.CARRY, false);
-        return 0;
+        return CL(CARRY);
     } // Clear Carry Flag
 
     int CLD() {
-        return 0;
+        return CL(DECIMAL);
     } // Clear Decimal Mode
 
     int CLI() {
-        return 0;
+        return CL(DISABLE_INTERRUPTS);
     } // Clear interrupt Disable Bit
 
     int CLV() {
-        return 0;
+        return CL(OVERFLOW);
     } // Clear Overflow Flag
 
-    int CMP() {
+    private int CL(StatusRegister statusRegister) {
+        setFlag(statusRegister, false);
         return 0;
+    }
+
+    int CMP() {
+        return CP(accumulator) + 1;
     } // Compare Memory and Accumulator
 
     int CPX() {
-        return 0;
+        return CP(xRegister);
     } // Compare Memory and Index X
 
     int CPY() {
-        return 0;
+        return CP(yRegister);
     } // Compare Memory and Index Y
 
+    private int CP(int register) {
+        fetch();
+        int temp = register - fetched;
+        setFlag(CARRY, register >= fetched);
+        setFlag(ZERO, (temp & 0x00FF) == 0x000);
+        setFlag(NEGATIVE, (temp & 0x0080) != 0);
+        return 0;
+    }
+
     int DEC() {
+        fetch();
+        int temp = fetched - 1;
+        write(addressAbsolute, temp & 0x00FF);
+        setFlag(ZERO, (temp & 0x00FF) == 0x0000);
+        setFlag(NEGATIVE, (temp & 0x0080) != 0);
         return 0;
     } // Decrement Memory by One
 
@@ -359,32 +394,54 @@ public class Cpu {
     } // Decrement Index Y by One
 
     private int DE(int register) {
-        setFlag(StatusRegister.ZERO, register == 0x00);
-        setFlag(StatusRegister.NEGATIVE, (register & 0x80) != 0);
+        setFlag(ZERO, register == 0x00);
+        setFlag(NEGATIVE, (register & 0x80) != 0);
         return 0;
     }
 
     int EOR() {
-        return 0;
+        fetch();
+        accumulator = accumulator ^ fetched;
+        setFlag(ZERO, accumulator == 0x00);
+        setFlag(NEGATIVE, (accumulator & 0x80) != 0);
+        return 1;
     } // "Exclusive-Or" Memory with Accumulator
 
     int INC() {
+        fetch();
+        int temp = fetched + 1;
+        write(addressAbsolute, temp & 0x00FF);
+        setFlag(ZERO, (temp & 0x00FF) == 0x0000);
+        setFlag(NEGATIVE, (temp & 0x0080) != 0);
         return 0;
     } // Increment Memory by One
 
     int INX() {
-        return 0;
+        return IN(xRegister);
     } // Increment Index X by One
 
     int INY() {
-        return 0;
+        return IN(yRegister);
     } // Increment Index Y by One
 
+    private int IN(int register) {
+        setFlag(ZERO, register == 0x00);
+        setFlag(NEGATIVE, (register & 0x80) != 0);
+        return 0;
+    }
+
     int JMP() {
+        programCounter = addressAbsolute;
         return 0;
     } // Jump to New Location
 
     int JSR() {
+        programCounter--;
+        write(0x0100 + stackPointer, (programCounter >> 8) & 0x00FF);
+        stackPointer--;
+        write(0x0100 + stackPointer, programCounter & 0x00FF);
+        stackPointer--;
+        programCounter = addressAbsolute;
         return 0;
     } // Jump to New Location Saving Return Address
 
@@ -407,12 +464,22 @@ public class Cpu {
     } // Load Index Y with Memory
 
     private int LD(int register) {
-        setFlag(StatusRegister.ZERO, register == 0x00);
-        setFlag(StatusRegister.NEGATIVE, (register & 0x80) != 0);
+        setFlag(ZERO, register == 0x00);
+        setFlag(NEGATIVE, (register & 0x80) != 0);
         return 1;
     }
 
     int LSR() {
+        fetch();
+        setFlag(CARRY, (fetched & 0x001) != 0);
+        int temp = fetched >> 1;
+        setFlag(ZERO, (temp & 0x00FF) == 0x0000);
+        setFlag(NEGATIVE, (temp & 0x0080) != 0);
+        if (lookupInstructions[operationCode].isIMP()) {
+            accumulator = temp & 0x00FF;
+        } else {
+            write(addressAbsolute, temp & 0x00FF);
+        }
         return 0;
     } // Shift Right One Bit (Memory or Accumulator)
 
@@ -424,7 +491,11 @@ public class Cpu {
     }// No Operation
 
     int ORA() {
-        return 0;
+        fetch();
+        accumulator = accumulator | fetched;
+        setFlag(ZERO, accumulator == 0x00);
+        setFlag(NEGATIVE, (accumulator & 0x80) != 0);
+        return 1;
     } // "OR" Memory with Accumulator
 
     int PHA() {
@@ -434,30 +505,59 @@ public class Cpu {
     } // Push Accumulator on Stack
 
     int PHP() {
+        write(0x0100 + stackPointer, statusRegister | BREAK.bit | UNUSED.bit);
+        setFlag(BREAK, false);
+        setFlag(UNUSED, false);
+        stackPointer--;
         return 0;
     } // Push Processor Status on Stack
 
     int PLA() {
+        stackPointer++;
+        accumulator = read(0x0100 + stackPointer);
+        setFlag(ZERO, accumulator == 0x00);
+        setFlag(NEGATIVE, (accumulator & 0x80) != 0);
         return 0;
     } // Pull Accumulator from Stack
 
     int PLP() {
+        stackPointer++;
+        statusRegister = read(0x0100 + stackPointer);
+        setFlag(UNUSED, true);
         return 0;
     } // Pull Processor Status from Stack
 
     int ROL() {
+        fetch();
+        int temp = (fetched << 1) | getFlag(CARRY);
+        setFlag(CARRY, (temp & 0xFF00) != 0);
+        setFlag(ZERO, (temp & 0x00FF) == 0x0000);
+        setFlag(NEGATIVE, (temp & 0x0080) != 0);
+        if (lookupInstructions[operationCode].isIMP())
+            accumulator = temp & 0x00FF;
+        else
+            write(addressAbsolute, temp & 0x00FF);
         return 0;
     } // Rotate One Bit Left (Memory or Accumulator)
 
     int ROR() {
+        fetch();
+        int temp = (getFlag(CARRY) << 7) | (fetched >> 1);
+        setFlag(CARRY, (fetched & 0x01) != 0);
+        setFlag(ZERO, (temp & 0x00FF) == 0x0000);
+        setFlag(NEGATIVE, (temp & 0x0080) != 0);
+        if (lookupInstructions[operationCode].isIMP())
+            accumulator = temp & 0x00FF;
+        else
+            write(addressAbsolute, temp & 0x00FF);
         return 0;
     } // Rotate One Bit Right (Memory or Accumulator)
 
     int RTI() {
         stackPointer++;
         statusRegister = read(0x0100 + stackPointer);
-        statusRegister &= ~StatusRegister.BREAK.bit;
-        statusRegister &= ~StatusRegister.UNUSED.bit;
+        statusRegister &= ~BREAK.bit;
+        statusRegister &= ~UNUSED.bit;
         stackPointer++;
         programCounter = read(0x0100 + stackPointer);
         stackPointer++;
@@ -466,32 +566,42 @@ public class Cpu {
     } // Return from Interrupt
 
     int RTS() {
+        stackPointer++;
+        programCounter = read(0x0100 + stackPointer);
+        stackPointer++;
+        programCounter |= read(0x0100 + stackPointer) << 8;
+        programCounter++;
         return 0;
     } // Return from Subroutine
 
     int SBC() {
         fetch();
         int value = fetched ^ 0x00FF;
-        int temp = accumulator + value + getFlag(StatusRegister.CARRY);
-        setFlag(StatusRegister.CARRY, (temp & 0xFF00) != 0);
-        setFlag(StatusRegister.ZERO, (temp & 0x00FF) == 0);
-        setFlag(StatusRegister.OVERFLOW, ((temp ^ accumulator) & (temp ^ value) & 0x0080) != 0);
-        setFlag(StatusRegister.NEGATIVE, (temp & 0x0080) != 0);
+        int temp = accumulator + value + getFlag(CARRY);
+        setFlag(CARRY, (temp & 0xFF00) != 0);
+        setFlag(ZERO, (temp & 0x00FF) == 0);
+        setFlag(OVERFLOW, ((temp ^ accumulator) & (temp ^ value) & 0x0080) != 0);
+        setFlag(NEGATIVE, (temp & 0x0080) != 0);
         accumulator = temp & 0x00FF;
         return 1;
     } // Subtract Memory from Accumulator with Borrow
 
     int SEC() {
-        return 0;
+        return SE(CARRY);
     } // Set Carry Flag
 
     int SED() {
-        return 0;
+        return SE(DECIMAL);
     } // Set Decimal Mode
 
     int SEI() {
-        return 0;
+        return SE(DISABLE_INTERRUPTS);
     } // Set Interrupt Disable Status
+
+    private int SE(StatusRegister statusRegister) {
+        setFlag(statusRegister, true);
+        return 0;
+    }
 
     int STA() {
         return ST(accumulator);
@@ -505,34 +615,46 @@ public class Cpu {
         return ST(yRegister);
     } // Store Index Y in Memory
 
-    int ST(int register) {
+    private int ST(int register) {
         write(addressAbsolute, register);
         return 0;
     }
 
     int TAX() {
-        return 0;
+        xRegister = accumulator;
+        return TX(xRegister);
     } // Transfer Accumulator to Index X
 
     int TAY() {
-        return 0;
+        yRegister = accumulator;
+        return TX(yRegister);
     } // Transfer Accumulator to Index Y
 
     int TSX() {
-        return 0;
+        xRegister = stackPointer;
+        return TX(xRegister);
     } // Transfer Stack Pointer to Index X
 
     int TXA() {
-        return 0;
+        accumulator = xRegister;
+        return TX(accumulator);
     } // Transfer Index X to Accumulator
 
     int TXS() {
+        stackPointer = xRegister;
         return 0;
     } // Transfer Index X to Stack Pointer
 
     int TYA() {
-        return 0;
+        accumulator = yRegister;
+        return TX(accumulator);
     } // Transfer Index Y to Accumulator
+
+    private int TX(int register) {
+        setFlag(ZERO, register == 0x00);
+        setFlag(NEGATIVE, (register & 0x80) != 0);
+        return 0;
+    }
 
     int XXX() {
         return 0;
