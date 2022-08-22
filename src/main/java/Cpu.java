@@ -81,35 +81,6 @@ public class Cpu {
         clockCount++;
     }
 
-    private class Debugger {
-        int programCounter;
-        long clockCount;
-
-        Debugger(Cpu cpu) {
-            this.programCounter = cpu.programCounter;
-            this.clockCount = cpu.clockCount;
-        }
-
-        void log() {
-            String debug = """
-                Operation: %s
-                Address: %02X
-                Accumulator: %02X
-                X Register: %02X
-                Y Register: %02X
-                StackPointer: %02X
-                Flags: %s%s%s%s%s%s%s%s
-                Clock count: %d
-                """.formatted(
-                    lookupInstructions[operationCode].name(),
-                    programCounter, accumulator, xRegister, yRegister, stackPointer,
-                    checkFlag(StatusRegister.NEGATIVE), checkFlag(StatusRegister.OVERFLOW), checkFlag(StatusRegister.UNUSED),
-                    checkFlag(StatusRegister.BREAK), checkFlag(StatusRegister.DECIMAL), checkFlag(StatusRegister.DISABLE_INTERRUPTS),
-                    checkFlag(StatusRegister.ZERO), checkFlag(StatusRegister.CARRY), clockCount);
-            System.out.println(debug);
-        }
-    }
-
     private char checkFlag(StatusRegister statusRegister) {
         return getFlag(statusRegister) == 1 ? statusRegister.code : '.';
     }
@@ -197,7 +168,7 @@ public class Cpu {
         return 0;
     };
     Supplier<Integer> REL = () -> {
-        addressRelative = read(programCounter);
+        addressRelative = (byte) read(programCounter);
         programCounter++;
         if ((addressRelative & 0x80) != 0)
             addressRelative |= 0xFF00;
@@ -545,7 +516,35 @@ public class Cpu {
                     new Instruction("BEQ REL", BEQ, REL, 2), new Instruction("SBC IZY", SBC, IZY, 5), new Instruction("??? IMP", XXX, IMP, 2), new Instruction("??? IMP", XXX, IMP, 8), new Instruction("??? IMP", NOP, IMP, 4), new Instruction("SBC ZPX", SBC, ZPX, 4), new Instruction("INC ZPX", INC, ZPX, 6), new Instruction("??? IMP", XXX, IMP, 6), new Instruction("SED IMP", SED, IMP, 2), new Instruction("SBC ABY", SBC, ABY, 4), new Instruction("NOP IMP", NOP, IMP, 2), new Instruction("??? IMP", XXX, IMP, 7), new Instruction("??? IMP", NOP, IMP, 4), new Instruction("SBC ABX", SBC, ABX, 4), new Instruction("INC ABX", INC, ABX, 7), new Instruction("??? IMP", XXX, IMP, 7),
             };
 
-    record Instruction(String name, Supplier<Integer> operation, Supplier<Integer> addressingMode, int totalCycles) {
+    record Instruction(String name, Supplier<Integer> operation, Supplier<Integer> addressingMode, int totalCycles) { }
+
+    private class Debugger {
+        int programCounter;
+        long clockCount;
+
+        Debugger(Cpu cpu) {
+            this.programCounter = cpu.programCounter;
+            this.clockCount = cpu.clockCount;
+        }
+
+        void log() {
+            String debug = """
+                Operation: %s
+                Address: %02X
+                Accumulator: %02X
+                X Register: %02X
+                Y Register: %02X
+                StackPointer: %02X
+                Flags: %s%s%s%s%s%s%s%s
+                Clock count: %d
+                """.formatted(
+                    lookupInstructions[operationCode].name(),
+                    programCounter, accumulator, xRegister, yRegister, stackPointer,
+                    checkFlag(StatusRegister.NEGATIVE), checkFlag(StatusRegister.OVERFLOW), checkFlag(StatusRegister.UNUSED),
+                    checkFlag(StatusRegister.BREAK), checkFlag(StatusRegister.DECIMAL), checkFlag(StatusRegister.DISABLE_INTERRUPTS),
+                    checkFlag(StatusRegister.ZERO), checkFlag(StatusRegister.CARRY), clockCount);
+            System.out.println(debug);
+        }
     }
 
 }
