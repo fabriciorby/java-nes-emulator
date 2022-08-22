@@ -14,21 +14,35 @@ public class Debugger {
 
     void log(Instruction instruction) {
         String debug = """
-                Operation: %s
-                Address: %02X
-                Accumulator: %02X
-                X Register: %02X
-                Y Register: %02X
+                $%02X: %s %s
+                A: %02X
+                X: %02X
+                Y: %02X
                 StackPointer: %02X
                 Flags: %s%s%s%s%s%s%s%s
                 Clock count: %d
                 """.formatted(
-                instruction.getName(),
-                this.programCounter, cpu.accumulator, cpu.xRegister, cpu.yRegister, cpu.stackPointer,
+                this.programCounter, instruction.getName(), getInstructionInfo(instruction),
+                cpu.accumulator, cpu.xRegister, cpu.yRegister, cpu.stackPointer,
                 checkFlag(StatusRegister.NEGATIVE), checkFlag(StatusRegister.OVERFLOW), checkFlag(StatusRegister.UNUSED),
                 checkFlag(StatusRegister.BREAK), checkFlag(StatusRegister.DECIMAL), checkFlag(StatusRegister.DISABLE_INTERRUPTS),
                 checkFlag(StatusRegister.ZERO), checkFlag(StatusRegister.CARRY), clockCount);
         System.out.println(debug);
+    }
+
+    String getInstructionInfo(Instruction instruction) {
+
+        int address = this.programCounter + 1;
+
+        return switch (instruction.addressingModeName()) {
+            case "IMM", "ZP0", "ZPX", "ZPY", "IZX", "IZY" ->
+                    "#$%02X".formatted(cpu.read(address));
+            case "ABS", "IND", "ABY", "ABX" ->
+                    "$%04X".formatted((cpu.read(address + 1) << 8 | cpu.read(address)));
+            case "REL" ->
+                    "$%02X [$%04X]".formatted(cpu.read(address), ((byte) cpu.read(address) + address + 1));
+            default -> "";
+        } + " {" + instruction.addressingModeName() + "}";
     }
 
     private char checkFlag(StatusRegister statusRegister) {

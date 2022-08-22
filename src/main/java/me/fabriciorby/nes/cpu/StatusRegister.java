@@ -1,7 +1,7 @@
 package me.fabriciorby.nes.cpu;
 
 public enum StatusRegister {
-    CARRY(1 << 0, 'C'),
+    CARRY(1, 'C'),
     ZERO(1 << 1, 'Z'),
     DISABLE_INTERRUPTS(1 << 2, 'I'),
     DECIMAL(1 << 3, 'D'),
