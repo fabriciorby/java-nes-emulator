@@ -1,7 +1,7 @@
 public class Bus {
 
-    private final Cpu cpu = new Cpu();
-    private final int[] fakeRam = new int[Memory.RAM_SIZE];
+    public final Cpu cpu = new Cpu();
+    public final int[] fakeRam = new int[Memory.RAM_SIZE];
 
     public Bus() {
         cpu.connectBus(this);
@@ -14,7 +14,10 @@ public class Bus {
     }
 
     public int read(int address, boolean readOnly) {
-        return 0;
+        if (address >= 0x0000 && address <= 0xFFFF) {
+            return fakeRam[address];
+        }
+        return 0x00;
     }
 
     public int read(int address) {
