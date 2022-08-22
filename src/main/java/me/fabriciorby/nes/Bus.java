@@ -1,3 +1,7 @@
+package me.fabriciorby.nes;
+
+import me.fabriciorby.nes.cpu.Cpu;
+
 public class Bus {
 
     public final Cpu cpu = new Cpu();

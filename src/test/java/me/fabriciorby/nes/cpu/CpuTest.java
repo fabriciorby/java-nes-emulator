@@ -1,4 +1,6 @@
-import org.junit.jupiter.api.BeforeAll;
+package me.fabriciorby.nes.cpu;
+
+import me.fabriciorby.nes.Bus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -9,6 +11,9 @@ import java.util.stream.IntStream;
 import static org.junit.jupiter.api.Assertions.*;
 
 class CpuTest {
+
+    final int CARTRIDGE_OFFSET = 0x8000;
+    Bus nes;
 
     // Load Program (assembled at https://www.masswerk.at/6502/assembler.html)
     /*
@@ -30,18 +35,11 @@ class CpuTest {
         NOP
     */
 
-    String multiply3for10 = "A2 0A 8E 00 00 A2 03 8E 01 00 AC 00 00 A9 00 18 6D 01 00 88 D0 FA 8D 02 00 EA EA EA";
-
-    private byte[] getProgram(String program) {
-        return HexFormat.ofDelimiter(" ").parseHex(program);
-    }
-
-    final int CARTRIDGE_OFFSET = 0x8000;
-
-    Bus nes = new Bus();
+    String multiply3by10 = "A2 0A 8E 00 00 A2 03 8E 01 00 AC 00 00 A9 00 18 6D 01 00 88 D0 FA 8D 02 00 EA EA EA";
 
     @BeforeEach
     void setup() {
+        nes = new Bus();
         nes.fakeRam[0xFFFC] = 0x00;
         nes.fakeRam[0xFFFD] = 0x80;
         nes.cpu.reset();
@@ -51,7 +49,7 @@ class CpuTest {
     @DisplayName("Should multiply 3*10")
     void cpuCalculate() {
 
-        byte[] program = getProgram(multiply3for10);
+        byte[] program = getProgram(multiply3by10);
         for (int i = 0; i < program.length; i++) {
             nes.fakeRam[CARTRIDGE_OFFSET + i] = Byte.toUnsignedInt(program[i]);
         }
@@ -59,6 +57,10 @@ class CpuTest {
         IntStream.range(0, 130).forEach( i -> nes.cpu.clock());
         assertEquals(nes.cpu.accumulator, 30);
 
+    }
+
+    private byte[] getProgram(String program) {
+        return HexFormat.ofDelimiter(" ").parseHex(program);
     }
 
 }
