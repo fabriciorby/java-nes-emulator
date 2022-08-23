@@ -34,7 +34,7 @@ public class Cpu {
     private int addressRelative = 0x00;
     private int cycles = 0;
 
-    private final Instruction[] lookupInstructions = Instruction.getInstructions(this);
+    final Instruction[] lookupInstructions = Instruction.getInstructions(this);
 
     public int getFlag(StatusRegister statusRegister) {
         return ((this.statusRegister & statusRegister.bit) > 0) ? 1 : 0;
@@ -61,7 +61,7 @@ public class Cpu {
             cycles += lookupInstructions[operationCode].runAndGetCycles();
 
             setFlag(UNUSED, true);
-            debugger.log(lookupInstructions[operationCode]);
+            debugger.log();
         }
         cycles--;
         clockCount++;

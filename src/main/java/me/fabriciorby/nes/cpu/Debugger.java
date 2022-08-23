@@ -4,15 +4,17 @@ public class Debugger {
 
     int programCounter;
     long clockCount;
+    Instruction instruction;
     Cpu cpu;
 
     Debugger(Cpu cpu) {
         this.programCounter = cpu.programCounter;
         this.clockCount = cpu.clockCount;
         this.cpu = cpu;
+        this.instruction = cpu.lookupInstructions[cpu.read(programCounter)];
     }
 
-    void log(Instruction instruction) {
+    void log() {
         String debug = """
                 $%02X: %s %s
                 A: %02X
