@@ -48,7 +48,7 @@ public class Cartridge {
 
     public int cpuRead(int address) {
         int mappedAddress = mapper.cpuMapRead(address);
-        return PRG[mappedAddress];
+        return Byte.toUnsignedInt(PRG[mappedAddress]);
     }
 
     public void ppuWrite(int address, int data) {
@@ -58,7 +58,7 @@ public class Cartridge {
 
     public int ppuRead(int address) {
         int mappedAddress = mapper.ppuMapRead(address);
-        return CHR[mappedAddress];
+        return Byte.toUnsignedInt(CHR[mappedAddress]);
     }
 
 }

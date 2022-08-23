@@ -1,7 +1,6 @@
 package me.fabriciorby.nes.cpu;
 
 import me.fabriciorby.nes.Bus;
-import me.fabriciorby.nes.Memory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -13,6 +12,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class CpuTest {
 
+    private final int RAM_SIZE = 0xFFFF + 1;
     private final int CARTRIDGE_OFFSET = 0x8000;
     private Bus cpuBus;
 
@@ -42,7 +42,7 @@ class CpuTest {
     void setup() {
         cpuBus = new Bus() {
             {
-                this.cpuRam = new int[Memory.RAM_SIZE];
+                this.cpuRam = new int[RAM_SIZE];
             }
 
             @Override

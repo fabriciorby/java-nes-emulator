@@ -52,12 +52,9 @@ public class Bus {
 
     public void clock() {
         ppu.clock();
-
-        if (clockCounter % 3 == 0)
-        {
+        if (clockCounter % 3 == 0) {
             cpu.clock();
         }
-
         clockCounter++;
     }
 
