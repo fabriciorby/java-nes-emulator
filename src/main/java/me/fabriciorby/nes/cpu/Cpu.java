@@ -13,11 +13,11 @@ public class Cpu {
     }
 
     int read(int address) {
-        return bus.read(address);
+        return bus.cpuRead(address);
     }
 
     void write(int address, int data) {
-        bus.write(address, data);
+        bus.cpuWrite(address, data);
     }
 
     public int accumulator = 0x00;

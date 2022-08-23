@@ -1,31 +1,64 @@
 package me.fabriciorby.nes;
 
+import me.fabriciorby.nes.cartridge.Cartridge;
 import me.fabriciorby.nes.cpu.Cpu;
 
 public class Bus {
 
+    int clockCounter;
+
     public final Cpu cpu = new Cpu();
-    public final int[] fakeRam = new int[Memory.RAM_SIZE];
+    public final Ppu ppu = new Ppu();
+    public int[] cpuRam = new int[2048];
+    private Cartridge cartridge;
 
     public Bus() {
         cpu.connectBus(this);
     }
 
-    public void write(int address, int data) {
-        if (address >= 0x0000 && address <= 0xFFFF) {
-            fakeRam[address] = data;
+    public void cpuWrite(int address, int data) {
+        if (address >= 0x0000 && address <= 0x1FFF) {
+            cpuRam[address & 0x07FF] = data;
+        } else if (address >= 0x2000 && address <= 0x3FFF) {
+            ppu.cpuWrite(address & 0x0007, data);
+        } else {
+            cartridge.cpuWrite(address, data);
         }
     }
 
-    public int read(int address, boolean readOnly) {
-        if (address >= 0x0000 && address <= 0xFFFF) {
-            return fakeRam[address];
+    public int cpuRead(int address, boolean readOnly) {
+        if (address >= 0x0000 && address <= 0x1FFF) {
+            return cpuRam[address & 0x07FF];
+        } else if (address >= 0x2000 && address <= 0x3FFF) {
+            return ppu.cpuRead(address & 0x0007, readOnly);
+        } else {
+            return cartridge.cpuRead(address);
         }
-        return 0x00;
     }
 
-    public int read(int address) {
-        return this.read(address, false);
+    public int cpuRead(int address) {
+        return this.cpuRead(address, false);
+    }
+
+    public void insert(Cartridge cartridge) {
+        this.cartridge = cartridge;
+        this.ppu.connect(cartridge);
+    }
+
+    public void reset() {
+        cpu.reset();
+        clockCounter = 0;
+    }
+
+    public void clock() {
+        ppu.clock();
+
+        if (clockCounter % 3 == 0)
+        {
+            cpu.clock();
+        }
+
+        clockCounter++;
     }
 
 }

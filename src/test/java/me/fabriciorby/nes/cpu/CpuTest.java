@@ -1,6 +1,7 @@
 package me.fabriciorby.nes.cpu;
 
 import me.fabriciorby.nes.Bus;
+import me.fabriciorby.nes.Memory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -12,8 +13,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class CpuTest {
 
-    final int CARTRIDGE_OFFSET = 0x8000;
-    Bus nes;
+    private final int CARTRIDGE_OFFSET = 0x8000;
+    private Bus cpuBus;
 
     // Load Program (assembled at https://www.masswerk.at/6502/assembler.html)
     /*
@@ -39,10 +40,29 @@ class CpuTest {
 
     @BeforeEach
     void setup() {
-        nes = new Bus();
-        nes.fakeRam[0xFFFC] = 0x00;
-        nes.fakeRam[0xFFFD] = 0x80;
-        nes.cpu.reset();
+        cpuBus = new Bus() {
+            {
+                this.cpuRam = new int[Memory.RAM_SIZE];
+            }
+
+            @Override
+            public void cpuWrite(int address, int data) {
+                if (address >= 0x0000 && address <= 0xFFFF) {
+                    cpuRam[address] = data;
+                }
+            }
+
+            @Override
+            public int cpuRead(int address, boolean readOnly) {
+                if (address >= 0x0000 && address <= 0xFFFF) {
+                    return cpuRam[address];
+                }
+                return 0x00;
+            }
+        };
+        cpuBus.cpuRam[0xFFFC] = 0x00;
+        cpuBus.cpuRam[0xFFFD] = 0x80;
+        cpuBus.cpu.reset();
     }
 
     @Test
@@ -51,11 +71,11 @@ class CpuTest {
 
         byte[] program = getProgram(multiply3by10);
         for (int i = 0; i < program.length; i++) {
-            nes.fakeRam[CARTRIDGE_OFFSET + i] = Byte.toUnsignedInt(program[i]);
+            cpuBus.cpuRam[CARTRIDGE_OFFSET + i] = Byte.toUnsignedInt(program[i]);
         }
 
-        IntStream.range(0, 130).forEach( i -> nes.cpu.clock());
-        assertEquals(nes.cpu.accumulator, 30);
+        IntStream.range(0, 130).forEach( i -> cpuBus.cpu.clock());
+        assertEquals(30, cpuBus.cpu.accumulator);
 
     }
 
