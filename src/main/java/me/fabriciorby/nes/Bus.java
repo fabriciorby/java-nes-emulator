@@ -2,6 +2,7 @@ package me.fabriciorby.nes;
 
 import me.fabriciorby.nes.cartridge.Cartridge;
 import me.fabriciorby.nes.cpu.Cpu;
+import me.fabriciorby.nes.ppu.Ppu;
 
 public class Bus {
 
