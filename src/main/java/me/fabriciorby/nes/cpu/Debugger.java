@@ -17,15 +17,16 @@ public class Debugger {
     void log() {
         String debug = """
                 $%02X: %s %s
-                A: %02X
-                X: %02X
-                Y: %02X
-                StackPointer: %02X
+                A: $%02X [%s]
+                X: $%02X [%s]
+                Y: $%02X [%s]
+                StackPointer: $%02X
                 Flags: %s%s%s%s%s%s%s%s
                 Clock count: %d
                 """.formatted(
                 this.programCounter, instruction.getName(), getInstructionInfo(instruction),
-                cpu.accumulator, cpu.xRegister, cpu.yRegister, cpu.stackPointer,
+                cpu.accumulator, cpu.accumulator, cpu.xRegister, cpu.xRegister,
+                cpu.yRegister, cpu.yRegister, cpu.stackPointer,
                 checkFlag(StatusRegister.NEGATIVE), checkFlag(StatusRegister.OVERFLOW), checkFlag(StatusRegister.UNUSED),
                 checkFlag(StatusRegister.BREAK), checkFlag(StatusRegister.DECIMAL), checkFlag(StatusRegister.DISABLE_INTERRUPTS),
                 checkFlag(StatusRegister.ZERO), checkFlag(StatusRegister.CARRY), clockCount);

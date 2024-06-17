@@ -17,20 +17,21 @@ class CpuTest {
     private Bus cpuBus;
 
     // Load Program (assembled at https://www.masswerk.at/6502/assembler.html)
+    // For more information about the OP Codes go to https://www.nesdev.org/6502.txt
     /*
         *=$8000
-        LDX #10
-        STX $0000
-        LDX #3
-        STX $0001
-        LDY $0000
-        LDA #0
-        CLC
-        loop
-        ADC $0001
-        DEY
-        BNE loop
-        STA $0002
+        LDX #10     ;Store 10 in X Register
+        STX $0000   ;Store whatever is in X into $0000
+        LDX #3      ;Store 3 in X Register
+        STX $0001   ;Store whatever is in X into $0001
+        LDY $0000   ;Load whatever is in $0000 into Y Register (it knows because uses 4 bits input)
+        LDA #0      ;Store 0 in Accumulator
+        CLC         ;Clear Carry just in case
+        loop        ;Start the loop by counting how many bytes of memory it takes to get to the end of the loop
+        ADC $0001   ;Add whatever is in $0001 to the Accumulator
+        DEY         ;Decrease Y by 1 (Y--)
+        BNE loop    ;Branch not zero, thus loops a number of instructions back until 'loop' while flag zero is true
+        STA $0002   ;Stores whatever is in Accumulator into $0002
         NOP
         NOP
         NOP
