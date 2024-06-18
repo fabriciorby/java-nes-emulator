@@ -7,14 +7,14 @@ public class Debugger {
     Instruction instruction;
     Cpu cpu;
 
-    Debugger(Cpu cpu) {
+    public Debugger(Cpu cpu) {
         this.programCounter = cpu.programCounter;
         this.clockCount = cpu.clockCount;
         this.cpu = cpu;
         this.instruction = cpu.lookupInstructions[cpu.read(programCounter)];
     }
 
-    void log() {
+    public void log() {
         String debug = """
                 $%02X: %s %s
                 A: $%02X [%s]
@@ -24,7 +24,7 @@ public class Debugger {
                 Flags: %s%s%s%s%s%s%s%s
                 Clock count: %d
                 """.formatted(
-                this.programCounter, instruction.getName(), getInstructionInfo(instruction),
+                programCounter, instruction.getName(), getInstructionInfo(instruction),
                 cpu.accumulator, cpu.accumulator, cpu.xRegister, cpu.xRegister,
                 cpu.yRegister, cpu.yRegister, cpu.stackPointer,
                 checkFlag(StatusRegister.NEGATIVE), checkFlag(StatusRegister.OVERFLOW), checkFlag(StatusRegister.UNUSED),
@@ -33,9 +33,40 @@ public class Debugger {
         System.out.println(debug);
     }
 
+    public String getCurrentInstruction() {
+        return "$%02X: %s %s".formatted(programCounter, instruction.getName(), getInstructionInfo(instruction));
+    }
+
+    public String getInstruction(int address) {
+        var instruction = cpu.lookupInstructions[cpu.read(address)];
+        return "$%02X: %s %s".formatted(address, instruction.getName(), getInstructionInfo(instruction));
+    }
+
+    public String getAccumulator() {
+        return "A: $%02X [%s]".formatted(cpu.accumulator, cpu.accumulator);
+    }
+
+    public String getXRegister() {
+        return "X: $%02X [%s]".formatted(cpu.xRegister, cpu.xRegister);
+    }
+
+    public String getYRegister() {
+        return "Y: $%02X [%s]".formatted(cpu.yRegister, cpu.yRegister);
+    }
+
+    public String getStackPointer() {
+        return "StackPointer: $%02X".formatted(cpu.stackPointer);
+    }
+
+    public String getFlags() {
+        return "Flags: %s%s%s%s%s%s%s%s".formatted(checkFlag(StatusRegister.NEGATIVE), checkFlag(StatusRegister.OVERFLOW), checkFlag(StatusRegister.UNUSED),
+                checkFlag(StatusRegister.BREAK), checkFlag(StatusRegister.DECIMAL), checkFlag(StatusRegister.DISABLE_INTERRUPTS),
+                checkFlag(StatusRegister.ZERO), checkFlag(StatusRegister.CARRY));
+    }
+
     String getInstructionInfo(Instruction instruction) {
 
-        int address = this.programCounter + 1;
+        int address = programCounter + 1;
 
         return switch (instruction.addressingModeName()) {
             case "IMM", "ZP0", "ZPX", "ZPY", "IZX", "IZY" ->

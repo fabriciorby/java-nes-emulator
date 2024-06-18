@@ -12,7 +12,7 @@ public class Cpu {
         this.bus = bus;
     }
 
-    int read(int address) {
+    protected int read(int address) {
         return bus.cpuRead(address);
     }
 
@@ -34,7 +34,7 @@ public class Cpu {
     private int addressRelative = 0x00;
     private int cycles = 0;
 
-    final Instruction[] lookupInstructions = Instruction.getInstructions(this);
+    protected final Instruction[] lookupInstructions = Instruction.getInstructions(this);
 
     public int getFlag(StatusRegister statusRegister) {
         return ((this.statusRegister & statusRegister.bit) > 0) ? 1 : 0;
@@ -44,7 +44,7 @@ public class Cpu {
         return (this.statusRegister & statusRegister.bit) > 0;
     }
 
-    private void setFlag(StatusRegister statusRegister, boolean value) {
+    protected void setFlag(StatusRegister statusRegister, boolean value) {
         if (value) {
             this.statusRegister |= statusRegister.bit;
         } else {
@@ -660,4 +660,8 @@ public class Cpu {
         return 0;
     } // Illegal OperationCode
 
+    // Helper functions
+    public boolean complete() {
+        return cycles == 0;
+    }
 }

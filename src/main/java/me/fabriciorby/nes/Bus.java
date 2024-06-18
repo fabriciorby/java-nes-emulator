@@ -8,8 +8,8 @@ public class Bus {
 
     int clockCounter;
 
-    public final Cpu cpu = new Cpu();
-    public final Ppu ppu = new Ppu();
+    public Cpu cpu = new Cpu();
+    public Ppu ppu = new Ppu();
     public int[] cpuRam = new int[2048];
     private Cartridge cartridge;
 

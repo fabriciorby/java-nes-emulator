@@ -61,6 +61,12 @@ class CpuTest {
                 return 0x00;
             }
         };
+        /*
+        * As per the documentation for the 6502, when the CPU is reset, it fetches the 16-bit address from memory
+        * locations 0xFFFC and 0xFFFD and sets the program counter to that address. Since the 6502 operates in little
+        * endian format, the low byte is stored first, then the high byte. That means that if your program code starts
+        * at 0xC000, you need values 0x00 and 0xC0 in bytes 0xFFFC and 0xFFFD respectively.
+        * */
         cpuBus.cpuRam[0xFFFC] = 0x00;
         cpuBus.cpuRam[0xFFFD] = 0x80;
         cpuBus.cpu.reset();
