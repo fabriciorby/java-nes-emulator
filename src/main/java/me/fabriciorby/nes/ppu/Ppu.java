@@ -1,8 +1,9 @@
 package me.fabriciorby.nes.ppu;
 
+import javafx.scene.paint.Color;
 import me.fabriciorby.nes.cartridge.Cartridge;
 
-import java.awt.*;
+import java.util.Arrays;
 
 public class Ppu {
 
@@ -90,6 +91,9 @@ public class Ppu {
     private boolean frameComplete;
 
     public void clock() {
+
+        spriteScreen.setPixel(cycle - 1, scanline, paletteColors[(Math.random() > 0.5) ? 0x3F : 0x30]);
+
         cycle++;
         if (cycle >= 341)
         {
@@ -104,16 +108,35 @@ public class Ppu {
     }
 
 
-    static class Sprite {
+    public static class Sprite {
         Color[][] pixelArray;
+        int width;
+        int height;
+
         public Sprite(int width, int height) {
             this.pixelArray = new Color[width][height];
+            for (Color[] row: pixelArray)
+                Arrays.fill(row, Color.BLACK);
+            this.width = width;
+            this.height = height;
         }
 
         public void setPixel(int x, int y, Color pixel) {
+            if (x >= width || y >= height || x < 0 || y < 0) return;
             this.pixelArray[x][y] = pixel;
         }
 
+        public Color[][] getPixelArray() {
+            return pixelArray;
+        }
+
+        public int getWidth() {
+            return this.width;
+        }
+
+        public int getHeight() {
+            return this.height;
+        }
 
     }
 

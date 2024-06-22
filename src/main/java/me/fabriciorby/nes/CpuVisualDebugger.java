@@ -75,7 +75,10 @@ public class CpuVisualDebugger extends Application {
     }
 
     private ObservableList<int[]> generateData() {
-        return FXCollections.observableArrayList(IntStream.iterate(0, i -> i + 16).limit((RAM_SIZE / 16) + 1).filter(i -> i <= 0x00F0 || (i >= 0x8000 && i <= 0x80F0)).mapToObj(i -> {
+        return FXCollections.observableArrayList(IntStream.iterate(0, i -> i + 16)
+                .limit((RAM_SIZE / 16) + 1)
+                .filter(i -> i <= 0x00F0 || (i >= 0x8000 && i <= 0x80F0))
+                .mapToObj(i -> {
                     var chunk = Arrays.copyOfRange(cpuRam, i, i + 16);
                     var result = new int[chunk.length + 1];
                     result[0] = i;
