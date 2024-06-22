@@ -1,5 +1,6 @@
 package me.fabriciorby.nes;
 
+import javafx.animation.AnimationTimer;
 import javafx.application.Application;
 import javafx.beans.binding.Bindings;
 import javafx.beans.property.ReadOnlyObjectWrapper;
@@ -8,6 +9,7 @@ import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
 import javafx.event.Event;
 import javafx.geometry.Insets;
+import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.Button;
@@ -21,7 +23,9 @@ import javafx.stage.Stage;
 import me.fabriciorby.nes.cartridge.Cartridge;
 import me.fabriciorby.nes.cpu.Cpu;
 import me.fabriciorby.nes.cpu.Debugger;
+import me.fabriciorby.nes.debugger.CalculateFps;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.stream.IntStream;
 
@@ -29,6 +33,8 @@ public class NesVisualDebugger extends Application {
 
     private final Bus nes = new Bus();
     private final Cpu cpu = nes.cpu;
+    private boolean emulationRun = false;
+    private float fResidualTime = 0.0f;
 
     private final Label flags = new Label();
     private final Label programCounter = new Label();
@@ -36,11 +42,19 @@ public class NesVisualDebugger extends Application {
     private final Label xRegister = new Label();
     private final Label yRegister = new Label();
     private final Label stack = new Label();
-    private ListView<String> listView;
-    private TableView<int[]> tableView;
+    private final ListView<String> listView = new ListView<>();;
+    private final TableView<int[]> tableView = new TableView<>();
     private WritableImage render;
     private final ImageView imageView = new ImageView();
     private final ButtonBar buttonBar = new ButtonBar();
+    private Parent layoutParent;
+    private float fElapsedTime;
+    private long startTime;
+    private long auxTime;
+    private final Label fpsLabel = new Label();
+    private final CalculateFps realFps = new CalculateFps(fpsLabel);
+    private final Label emulatorFpsLabel = new Label();
+    private final CalculateFps emulatorFps = new CalculateFps(emulatorFpsLabel);
 
     {
         Cartridge cartridge = new Cartridge("nestest.nes");
@@ -51,20 +65,23 @@ public class NesVisualDebugger extends Application {
     @Override
     public void start(Stage stage) {
         setupInstructionList();
-        setupMemoryTable();
+//        setupMemoryTable();
         setupButtons();
         setupImageRender();
-        setupLayout(stage);
+        setupLayout();
+        setupGameLoop();
         refresh();
-    }
 
-    private void setupLayout(Stage stage) {
-        VBox vbox = new VBox();
-        HBox hbox = new HBox();
-        vbox.getChildren().addAll(flags, programCounter, accumulator, xRegister, yRegister, stack, listView, buttonBar);
-        hbox.getChildren().addAll(imageView, tableView, new Separator(), vbox);
-        tableView.setVisible(false);
-        Scene scene = new Scene(hbox);
+        Scene scene = new Scene(layoutParent);
+        scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+            switch (e.getCode()) {
+                case SPACE -> this.emulationRun = !this.emulationRun;
+                case R -> reset();
+                case C -> clock();
+                case F -> frame();
+            }
+        });
+
         stage.setTitle("NES Debugger");
         stage.setScene(scene);
         stage.setResizable(false);
@@ -73,30 +90,73 @@ public class NesVisualDebugger extends Application {
         stage.show();
     }
 
+    private void setupGameLoop() {
+        startTime = Instant.now().toEpochMilli();
+        AnimationTimer frameRateMeter = new AnimationTimer() {
+            @Override
+            public void handle(long now) {
+                auxTime = Instant.now().toEpochMilli();
+                fElapsedTime = auxTime - startTime;
+                startTime = auxTime;
+                realFps.calculate(now);
+                if (emulationRun) {
+                    if (fResidualTime > 0.0f) {
+                        fResidualTime -= fElapsedTime;
+                    } else {
+                        emulatorFps.calculate(now);
+                        fResidualTime +=  (1000 * (1.0f / 60.0f)) - fElapsedTime;
+                        do { nes.clock(); } while (!nes.ppu.frameComplete);
+                        nes.ppu.frameComplete = false;
+                    }
+                }
+                refresh();
+            }
+        };
+        frameRateMeter.start();
+    }
+
+    private void setupLayout() {
+        VBox vbox = new VBox();
+        HBox hbox = new HBox();
+        VBox imageAndFps = new VBox();
+        vbox.getChildren().addAll(flags, programCounter, accumulator, xRegister, yRegister, stack, listView, buttonBar);
+        imageAndFps.getChildren().addAll(imageView, fpsLabel, emulatorFpsLabel);
+        hbox.getChildren().addAll(imageAndFps, tableView, new Separator(), vbox);
+        tableView.setVisible(false);
+        layoutParent = hbox;
+    }
+
     private void setupImageRender() {
         this.render = new WritableImage(nes.ppu.getScreen().getWidth(), nes.ppu.getScreen().getHeight());
+    }
+
+    private void reset() {
+        nes.reset();
+    }
+
+    private void clock() {
+        do {nes.clock();} while (!nes.cpu.complete());
+        do {nes.clock();} while (nes.cpu.complete());
+    }
+
+    private void frame() {
+        do {nes.clock();} while (!nes.ppu.frameComplete);
+        do {nes.clock();} while (!nes.cpu.complete());
+        nes.ppu.frameComplete = false;
     }
 
     private void setupButtons() {
         buttonBar.setPadding(new Insets(10));
         Button clockButton = new Button("Clock");
         Button resetButton = new Button("Reset");
-        ButtonBar.setButtonData(clockButton, ButtonBar.ButtonData.OK_DONE);
-        ButtonBar.setButtonData(resetButton, ButtonBar.ButtonData.CANCEL_CLOSE);
-        resetButton.setOnAction(event -> {
-            nes.reset();
-            refresh();
-        });
-        clockButton.setOnAction(event -> {
-            do {nes.clock();} while (!cpu.complete());
-            do {nes.clock();} while (cpu.complete());
-            refresh();
-        });
+        resetButton.setOnAction(event -> reset());
+        clockButton.setOnAction(event -> clock());
+        resetButton.addEventFilter(KeyEvent.KEY_PRESSED, Event::consume);
+        clockButton.addEventFilter(KeyEvent.KEY_PRESSED, Event::consume);
         buttonBar.getButtons().addAll(clockButton, resetButton);
     }
 
     private void setupMemoryTable() {
-        this.tableView = new TableView<>();
         tableView.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
         tableView.setTableMenuButtonVisible(true);
         tableView.setItems(getHexItemsList());
@@ -109,7 +169,6 @@ public class NesVisualDebugger extends Application {
     }
 
     private void setupInstructionList() {
-        this.listView = new ListView<>();
         listView.setPrefHeight(700);
         listView.getSelectionModel().select(12);
         listView.addEventFilter(MouseEvent.ANY, Event::consume);
@@ -118,8 +177,9 @@ public class NesVisualDebugger extends Application {
 
     private void refresh() {
         Debugger debugger = new Debugger(cpu);
-        tableView.setItems(getHexItemsList());
-        tableView.refresh();
+        debugger.setLog(false);
+//        tableView.setItems(getHexItemsList());
+//        tableView.refresh();
         flags.setText(debugger.getFlags());
         programCounter.setText(debugger.getCurrentInstruction());
         accumulator.setText(debugger.getAccumulator());

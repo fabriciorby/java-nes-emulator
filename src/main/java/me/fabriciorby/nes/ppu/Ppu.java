@@ -88,7 +88,7 @@ public class Ppu {
 
     private int cycle;
     private int scanline;
-    private boolean frameComplete;
+    public boolean frameComplete;
 
     public void clock() {
 

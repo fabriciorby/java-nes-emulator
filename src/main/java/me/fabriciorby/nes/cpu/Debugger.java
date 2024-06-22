@@ -6,6 +6,7 @@ public class Debugger {
     long clockCount;
     Instruction instruction;
     Cpu cpu;
+    private boolean log = false;
 
     public Debugger(Cpu cpu) {
         this.programCounter = cpu.programCounter;
@@ -15,6 +16,7 @@ public class Debugger {
     }
 
     public void log() {
+        if (!log) return;
         String debug = """
                 $%02X: %s %s
                 A: $%02X [%s]
@@ -31,6 +33,10 @@ public class Debugger {
                 checkFlag(StatusRegister.BREAK), checkFlag(StatusRegister.DECIMAL), checkFlag(StatusRegister.DISABLE_INTERRUPTS),
                 checkFlag(StatusRegister.ZERO), checkFlag(StatusRegister.CARRY), clockCount);
         System.out.println(debug);
+    }
+
+    public void setLog(boolean on) {
+        this.log = on;
     }
 
     public String getCurrentInstruction() {
