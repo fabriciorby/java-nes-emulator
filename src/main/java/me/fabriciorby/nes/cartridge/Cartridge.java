@@ -31,7 +31,11 @@ public class Cartridge {
             PRGBanks = header.PRGRomChunks;
             PRG = inputStream.readNBytes(PRGBanks * 16384);
             CHRBanks = header.CHRRomChunks;
-            CHR = inputStream.readNBytes(CHRBanks * 8192);
+            if (CHRBanks == 0) {
+                CHR = inputStream.readNBytes(8192);
+            } else {
+                CHR = inputStream.readNBytes(CHRBanks * 8192);
+            }
             this.mapper = switch (mapperId) {
                 case 0 -> new Mapper000(PRGBanks, CHRBanks);
                 default -> throw new IllegalStateException("Unexpected value: " + mapperId);
@@ -41,14 +45,30 @@ public class Cartridge {
         }
     }
 
+    public boolean cpuCanWrite(int address) {
+        return mapper.cpuMapWrite(address) != -1;
+    }
+
+    public boolean cpuCanRead(int address) {
+        return mapper.cpuMapRead(address) != -1;
+    }
+
     public void cpuWrite(int address, int data) {
-        int mappedAddress = mapper.cpuMapRead(address);
+        int mappedAddress = mapper.cpuMapWrite(address);
         PRG[mappedAddress] = (byte) data;
     }
 
     public int cpuRead(int address) {
         int mappedAddress = mapper.cpuMapRead(address);
         return Byte.toUnsignedInt(PRG[mappedAddress]);
+    }
+
+    public boolean ppuCanWrite(int address) {
+        return mapper.ppuMapWrite(address) != -1;
+    }
+
+    public boolean ppuCanRead(int address) {
+        return mapper.ppuMapRead(address) != -1;
     }
 
     public void ppuWrite(int address, int data) {

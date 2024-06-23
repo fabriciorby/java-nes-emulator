@@ -18,23 +18,24 @@ public class Bus {
     }
 
     public void cpuWrite(int address, int data) {
-        if (address >= 0x0000 && address <= 0x1FFF) {
+        if (cartridge.cpuCanWrite(address)) {
+            cartridge.cpuWrite(address, data);
+        } else if (address >= 0x0000 && address <= 0x1FFF) {
             cpuRam[address & 0x07FF] = data;
         } else if (address >= 0x2000 && address <= 0x3FFF) {
             ppu.cpuWrite(address & 0x0007, data);
-        } else {
-            cartridge.cpuWrite(address, data);
         }
     }
 
     public int cpuRead(int address, boolean readOnly) {
-        if (address >= 0x0000 && address <= 0x1FFF) {
+        if (cartridge.cpuCanRead(address)) {
+            return cartridge.cpuRead(address);
+        } else if (address >= 0x0000 && address <= 0x1FFF) {
             return cpuRam[address & 0x07FF];
         } else if (address >= 0x2000 && address <= 0x3FFF) {
             return ppu.cpuRead(address & 0x0007, readOnly);
-        } else {
-            return cartridge.cpuRead(address);
         }
+        return 0x00;
     }
 
     public int cpuRead(int address) {

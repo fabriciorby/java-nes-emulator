@@ -52,6 +52,21 @@ public class Cpu {
         }
     }
 
+    public int byteInc(int byteValue) {
+        return applyByteOverflow(byteValue + 1);
+    }
+
+    public int byteDec(int byteValue) {
+        return applyByteOverflow(byteValue - 1);
+    }
+
+    private int applyByteOverflow(int byteValue) {
+        //ugly way of dealing with overflow
+        if (byteValue < 0) return byteValue + 256;
+        if (byteValue > 255) return byteValue - 256;
+        return byteValue;
+    }
+
     public void clock() {
         if (cycles == 0) {
             Debugger debugger = new Debugger(this);
@@ -179,7 +194,7 @@ public class Cpu {
         programCounter++;
 
         int low = read(address + xRegister) & 0x00FF;
-        int high = read(address + xRegister + 1) & 0x00FF;
+        int high = read(address + byteInc(xRegister)) & 0x00FF;
 
         addressAbsolute = (high << 8) | low;
         return 0;
@@ -190,7 +205,7 @@ public class Cpu {
         programCounter++;
 
         int low = read(address & 0x00FF);
-        int high = read((address + 1) & 0x00FF);
+        int high = read((byteInc(address)) & 0x00FF);
 
         addressAbsolute = (high << 8) | low;
         addressAbsolute += yRegister;
@@ -384,12 +399,12 @@ public class Cpu {
     } // Decrement Memory by One
 
     int DEX() {
-        xRegister--;
+        xRegister = byteDec(xRegister);
         return DE(xRegister);
     } // Decrement Index X by One
 
     int DEY() {
-        yRegister--;
+        yRegister = byteDec(yRegister);
         return DE(yRegister);
     } // Decrement Index Y by One
 
@@ -417,10 +432,12 @@ public class Cpu {
     } // Increment Memory by One
 
     int INX() {
+        xRegister = byteInc(xRegister);
         return IN(xRegister);
     } // Increment Index X by One
 
     int INY() {
+        yRegister = byteInc(yRegister);
         return IN(yRegister);
     } // Increment Index Y by One
 

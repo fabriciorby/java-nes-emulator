@@ -16,30 +16,53 @@ public class Ppu {
     // https://www.nesdev.org/wiki/PPU_palettes#Palettes
     Color[] paletteColors = Colors.getColors();
 
+    ControlRegister controlRegister = new ControlRegister();
+    MaskRegister maskRegister = new MaskRegister();
+    StatusRegister statusRegister = new StatusRegister();
+
+    int addressLatch = 0x00;
+    int ppuDataBuffer = 0x00;
+    int ppuAddress = 0x0000;
+
     public void cpuWrite(int address, int data) {
 
-        int result = switch (address) {
-            case 0x0000 -> 0; // Control
-            case 0x0001 -> 0; // Mask
-            case 0x0002 -> 0; // Status
-            case 0x0003 -> 0; // OAM Address
-            case 0x0004 -> 0; // OAM Data
-            case 0x0005 -> 0; // Scroll
-            case 0x0006 -> 0; // PPU Address
-            case 0x0007 -> 0; // PPU Data
-            default -> 0;
+        switch (address) {
+            case 0x0000 -> controlRegister.controlRegister = data; // Control
+            case 0x0001 -> maskRegister.maskRegister = data; // Mask
+            case 0x0002 -> {} //statusRegister.statusRegister = data; // Status
+            case 0x0003 -> {
+            } // OAM Address
+            case 0x0004 -> {
+            } // OAM Data
+            case 0x0005 -> {
+            } // Scroll
+            case 0x0006 -> { // PPU Address
+                if (addressLatch == 0) {
+                    ppuAddress = (ppuAddress & 0x00FF) | (data << 8);
+                    addressLatch = 1;
+                } else {
+                    ppuAddress = (ppuAddress & 0xFF00) | data;
+                    addressLatch = 0;
+                }
+            }
+            case 0x0007 -> { // PPU Data
+                ppuWrite(ppuAddress, data);
+                ppuAddress++;
+            }
+            default -> {
+            }
         };
 
     }
 
     public int cpuRead(int address, boolean readOnly) {
-
+         readOnly = false;
         if (readOnly) {
 
             return switch (address) {
-                case 0x0000 -> 0; // Control
-                case 0x0001 -> 0; // Mask
-                case 0x0002 -> 0; // Status
+                case 0x0000 -> controlRegister.controlRegister; // Control
+                case 0x0001 -> maskRegister.maskRegister; // Mask
+                case 0x0002 -> statusRegister.statusRegister; // Status
                 case 0x0003 -> 0; // OAM Address
                 case 0x0004 -> 0; // OAM Data
                 case 0x0005 -> 0; // Scroll
@@ -53,12 +76,25 @@ public class Ppu {
             return switch (address) {
                 case 0x0000 -> 0; // Control
                 case 0x0001 -> 0; // Mask
-                case 0x0002 -> 0; // Status
+                case 0x0002 -> { // Status
+                    statusRegister.setVerticalBlank(1);
+                    int data = (statusRegister.statusRegister & 0xE0) | (ppuDataBuffer & 0x1F);
+//                    statusRegister.setVerticalBlank(0);
+                    addressLatch = 0;
+                    yield data;
+
+                }
                 case 0x0003 -> 0; // OAM Address
                 case 0x0004 -> 0; // OAM Data
                 case 0x0005 -> 0; // Scroll
                 case 0x0006 -> 0; // PPU Address
-                case 0x0007 -> 0; // PPU Data
+                case 0x0007 -> {
+                    int data = ppuDataBuffer;
+                    ppuDataBuffer = ppuRead(ppuAddress);
+                    if (ppuAddress >= 0x3F00) data = ppuDataBuffer;
+                   ppuAddress++;
+                   yield data;
+                } // PPU Data
                 default -> 0;
             };
 
@@ -68,18 +104,46 @@ public class Ppu {
     }
 
     public void ppuWrite(int address, int data) {
+
         address &= 0x3FFF;
 
-        cartridge.ppuWrite(address, data);
+        if (cartridge.ppuCanWrite(address)) {
+            cartridge.ppuWrite(address, data);
+        } else if (address >= 0x0000 && address <= 0x1FFF) {
+            tablePattern[(address & 0x1000) >> 12][address & 0x0FFF] = data;
+        } else if (address >= 0x2000 && address <= 0x3EFF) {
+
+        } else if (address >= 0x3F00 && address <= 0x3FFF) {
+            address &= 0x001F;
+            if (address == 0x0010) address = 0x0000;
+            if (address == 0x0014) address = 0x0004;
+            if (address == 0x0018) address = 0x0008;
+            if (address == 0x001C) address = 0x000C;
+            tablePalette[address] = data;
+        }
 
     }
 
     public int ppuRead(int address) {
+        int data = 0x00;
         address &= 0x3FFF;
 
-        cartridge.ppuRead(address);
+        if (cartridge.ppuCanRead(address)) {
+            data = cartridge.ppuRead(address);
+        } else if (address >= 0x0000 && address <= 0x1FFF) {
+            data = tablePattern[(address & 0x1000) >> 12][address & 0x0FFF];
+        } else if (address >= 0x2000 && address <= 0x3EFF) {
 
-        return 0;
+        } else if (address >= 0x3F00 && address <= 0x3FFF) {
+            address &= 0x001F;
+            if (address == 0x0010) address = 0x0000;
+            if (address == 0x0014) address = 0x0004;
+            if (address == 0x0018) address = 0x0008;
+            if (address == 0x001C) address = 0x000C;
+            data = tablePalette[address];
+        }
+
+        return data;
     }
 
     public void connect(Cartridge cartridge) {
@@ -142,7 +206,7 @@ public class Ppu {
 
     Sprite spriteScreen = new Sprite(256, 240);
     Sprite[] spriteNameTable = { new Sprite(256, 240), new Sprite(256, 240) };
-    Sprite[] spritePatternTable = { new Sprite(256, 240), new Sprite(256, 240) };
+    Sprite[] spritePatternTable = { new Sprite(128, 128), new Sprite(128, 128) };
 
     public Sprite getScreen() {
         return spriteScreen;

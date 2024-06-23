@@ -4,7 +4,7 @@ public class ControlRegister {
 
     int controlRegister;
 
-    enum Control {
+    public enum Control {
         NAMETABLE_X(1),
         NAMETABLE_Y(1 << 1),
         INCREMENT_MODE(1 << 2),
@@ -19,10 +19,6 @@ public class ControlRegister {
         Control(int bit) {
             this.bit = bit;
         }
-    }
-
-    public ControlRegister(int controlRegister) {
-        this.controlRegister = controlRegister;
     }
 
     public int get(Control control) {

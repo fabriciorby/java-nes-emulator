@@ -6,7 +6,7 @@ public class StatusRegister {
 
     int statusRegister;
 
-    enum Status {
+    public enum Status {
         UNUSED(0), // 5 bits
         SPRITE_OVERFLOW(1 << 5),
         SPRITE_ZERO_HIT(1 << 6),
@@ -17,10 +17,6 @@ public class StatusRegister {
         Status(int bit) {
             this.bit = bit;
         }
-    }
-
-    public StatusRegister(int statusRegister) {
-        this.statusRegister = statusRegister;
     }
 
     public int get(Status status) {
@@ -47,15 +43,15 @@ public class StatusRegister {
         return get(VERTICAL_BLANK);
     }
 
-    public void getSpriteOverflow(int value) {
+    public void setSpriteOverflow(int value) {
         set(SPRITE_OVERFLOW, value);
     }
 
-    public void getSpriteZeroHit(int value) {
+    public void setSpriteZeroHit(int value) {
         set(SPRITE_ZERO_HIT, value);
     }
 
-    public void getVerticalBlank(int value) {
+    public void setVerticalBlank(int value) {
         set(VERTICAL_BLANK, value);
     }
 }

@@ -24,6 +24,7 @@ import me.fabriciorby.nes.cartridge.Cartridge;
 import me.fabriciorby.nes.cpu.Cpu;
 import me.fabriciorby.nes.cpu.Debugger;
 import me.fabriciorby.nes.debugger.CalculateFps;
+import me.fabriciorby.nes.ppu.Ppu;
 
 import java.time.Instant;
 import java.util.List;
@@ -35,6 +36,7 @@ public class NesVisualDebugger extends Application {
     private final Cpu cpu = nes.cpu;
     private boolean emulationRun = false;
     private float fResidualTime = 0.0f;
+    private int selectedPalette = 0x00;
 
     private final Label flags = new Label();
     private final Label programCounter = new Label();
@@ -55,6 +57,10 @@ public class NesVisualDebugger extends Application {
     private final CalculateFps realFps = new CalculateFps(fpsLabel);
     private final Label emulatorFpsLabel = new Label();
     private final CalculateFps emulatorFps = new CalculateFps(emulatorFpsLabel);
+    private WritableImage renderPalette1;
+    private WritableImage renderPalette2;
+    private final ImageView imagePalette1 = new ImageView();
+    private final ImageView imagePalette2 = new ImageView();
 
     {
         Cartridge cartridge = new Cartridge("nestest.nes");
@@ -68,6 +74,7 @@ public class NesVisualDebugger extends Application {
 //        setupMemoryTable();
         setupButtons();
         setupImageRender();
+        setupSpritePalette();
         setupLayout();
         setupGameLoop();
         refresh();
@@ -79,6 +86,7 @@ public class NesVisualDebugger extends Application {
                 case R -> reset();
                 case C -> clock();
                 case F -> frame();
+                case P -> {++selectedPalette; selectedPalette &= 0x7;}
             }
         });
 
@@ -88,6 +96,17 @@ public class NesVisualDebugger extends Application {
         stage.setWidth(1024);
         stage.setHeight(880);
         stage.show();
+    }
+
+    private void setupSpritePalette() {
+        this.renderPalette1 = new WritableImage(
+                nes.ppu.getPatternTable(0, selectedPalette).getWidth(),
+                nes.ppu.getPatternTable(0, selectedPalette).getHeight()
+        );
+        this.renderPalette2 = new WritableImage(
+                nes.ppu.getPatternTable(1, selectedPalette).getWidth(),
+                nes.ppu.getPatternTable(1, selectedPalette).getHeight()
+        );
     }
 
     private void setupGameLoop() {
@@ -119,8 +138,10 @@ public class NesVisualDebugger extends Application {
         VBox vbox = new VBox();
         HBox hbox = new HBox();
         VBox imageAndFps = new VBox();
+        HBox palettes = new HBox();
+        palettes.getChildren().addAll(imagePalette1, new Separator(), imagePalette2);
         vbox.getChildren().addAll(flags, programCounter, accumulator, xRegister, yRegister, stack, listView, buttonBar);
-        imageAndFps.getChildren().addAll(imageView, fpsLabel, emulatorFpsLabel);
+        imageAndFps.getChildren().addAll(imageView, fpsLabel, emulatorFpsLabel, palettes);
         hbox.getChildren().addAll(imageAndFps, tableView, new Separator(), vbox);
         tableView.setVisible(false);
         layoutParent = hbox;
@@ -192,6 +213,17 @@ public class NesVisualDebugger extends Application {
         listView.getSelectionModel().select(13);
         listView.refresh();
         render();
+        renderPalette(renderPalette1, nes.ppu.getPatternTable(0, selectedPalette), imagePalette1);
+        renderPalette(renderPalette2, nes.ppu.getPatternTable(1, selectedPalette), imagePalette2);
+    }
+
+    private void renderPalette(WritableImage palette, Ppu.Sprite sprite, ImageView imageView) {
+        for (int i = 0; i < palette.getWidth(); i++) {
+            for (int j = 0; j < palette.getHeight(); j++) {
+                palette.getPixelWriter().setColor(i, j, sprite.getPixelArray()[i][j]);
+            }
+        }
+        imageView.setImage(scale(palette, 1));
     }
 
     private void render() {

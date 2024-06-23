@@ -4,7 +4,7 @@ public class MaskRegister {
 
     int maskRegister;
 
-    enum Mask {
+    public enum Mask {
         GRAYSCALE(1),
         RENDER_BACKGROUND_LEFT(1 << 1),
         RENDER_SPRITES_LEFT(1 << 2),
@@ -19,10 +19,6 @@ public class MaskRegister {
         Mask(int bit) {
             this.bit = bit;
         }
-    }
-
-    public MaskRegister(int maskRegister) {
-        this.maskRegister = maskRegister;
     }
 
     public int get(Mask mask) {
