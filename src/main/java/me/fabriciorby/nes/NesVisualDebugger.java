@@ -24,7 +24,7 @@ import me.fabriciorby.nes.cartridge.Cartridge;
 import me.fabriciorby.nes.cpu.Cpu;
 import me.fabriciorby.nes.cpu.Debugger;
 import me.fabriciorby.nes.debugger.CalculateFps;
-import me.fabriciorby.nes.ppu.Ppu;
+import me.fabriciorby.nes.ppu.Sprite;
 
 import java.time.Instant;
 import java.util.List;
@@ -171,7 +171,15 @@ public class NesVisualDebugger extends Application {
         Button clockButton = new Button("Clock");
         Button resetButton = new Button("Reset");
         resetButton.setOnAction(event -> reset());
-        clockButton.setOnAction(event -> clock());
+        clockButton.setOnAction(event -> {
+            for (int y = 0; y < 30; y++) {
+                for (int x = 0; x < 32; x++) {
+                    System.out.print(Integer.toHexString(nes.ppu.tableName[0][y * 32 + x]));
+                }
+                System.out.println();
+            }
+            clock();
+        });
         resetButton.addEventFilter(KeyEvent.KEY_PRESSED, Event::consume);
         clockButton.addEventFilter(KeyEvent.KEY_PRESSED, Event::consume);
         buttonBar.getButtons().addAll(clockButton, resetButton);
@@ -217,7 +225,7 @@ public class NesVisualDebugger extends Application {
         renderPalette(renderPalette2, nes.ppu.getPatternTable(1, selectedPalette), imagePalette2);
     }
 
-    private void renderPalette(WritableImage palette, Ppu.Sprite sprite, ImageView imageView) {
+    private void renderPalette(WritableImage palette, Sprite sprite, ImageView imageView) {
         for (int i = 0; i < palette.getWidth(); i++) {
             for (int j = 0; j < palette.getHeight(); j++) {
                 palette.getPixelWriter().setColor(i, j, sprite.getPixelArray()[i][j]);

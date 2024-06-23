@@ -89,9 +89,9 @@ public class Cpu {
 
         programCounter = (high << 8) | low;
 
-        accumulator = 0;
-        xRegister = 0;
-        yRegister = 0;
+        accumulator = 0x00;
+        xRegister = 0x00;
+        yRegister = 0x00;
         stackPointer = 0xFD;
         statusRegister = UNUSED.bit;
 
@@ -135,7 +135,7 @@ public class Cpu {
     //AddressingModes
 
     int ABS() {
-        return AB(0);
+        return AB(0x00);
     }
 
     int ABX() {

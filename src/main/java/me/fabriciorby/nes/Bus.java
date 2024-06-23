@@ -59,6 +59,12 @@ public class Bus {
         if (clockCounter % 3 == 0) {
             cpu.clock();
         }
+
+        if (ppu.nonMaskableInterrupt) {
+            ppu.nonMaskableInterrupt = false;
+            cpu.nonMaskableInterruptRequestSignal();
+        }
+
         clockCounter++;
     }
 

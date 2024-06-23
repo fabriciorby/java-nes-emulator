@@ -20,6 +20,15 @@ public class Cartridge {
     Header header;
     Mapper mapper;
 
+    public enum Mirror {
+        HORIZONTAL,
+        VERTICAL,
+        ONESCREEN_LO,
+        ONESCREEN_HI
+    }
+
+    public Mirror mirror;
+
     public Cartridge(String filename) {
         try (InputStream inputStream = Files.newInputStream(Paths.get(filename))) {
             this.header = new Header(inputStream.readNBytes(16));
@@ -27,6 +36,7 @@ public class Cartridge {
                 inputStream.skipNBytes(512);
             }
             mapperId = ((header.mapper2 >> 4) << 4) | (header.mapper1 >> 4);
+            mirror = (header.mapper1 & 0x01) != 0 ? Mirror.VERTICAL : Mirror.HORIZONTAL;
             int fileType = 1;
             PRGBanks = header.PRGRomChunks;
             PRG = inputStream.readNBytes(PRGBanks * 16384);

@@ -12,7 +12,7 @@ public class ControlRegister {
         PATTERN_BACKGROUND(1 << 4),
         SPRITE_SIZE(1 << 5),
         SLAVE_MODE(1 << 6),
-        ENABLE_NMI(1 << 7);
+        ENABLE_NMI(1 << 7); //NON MASKABLE INTERRUPT
 
         final int bit;
 
