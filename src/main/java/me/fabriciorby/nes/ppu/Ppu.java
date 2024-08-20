@@ -60,7 +60,7 @@ public class Ppu {
                     addressLatch = 1;
                 } else {
                     tRamAddress.loopyRegister = (tRamAddress.loopyRegister & 0xFF00) | data;
-                    vRamAddress = tRamAddress;
+                    vRamAddress.loopyRegister = tRamAddress.loopyRegister;
                     addressLatch = 0;
                 }
             }
