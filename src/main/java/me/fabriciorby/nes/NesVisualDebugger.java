@@ -63,7 +63,7 @@ public class NesVisualDebugger extends Application {
     private final ImageView imagePalette2 = new ImageView();
 
     {
-        Cartridge cartridge = new Cartridge("nestest.nes");
+        Cartridge cartridge = new Cartridge("dk.nes");
         nes.insert(cartridge);
         nes.reset();
     }

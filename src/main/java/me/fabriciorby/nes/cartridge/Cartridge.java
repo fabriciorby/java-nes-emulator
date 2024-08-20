@@ -56,11 +56,11 @@ public class Cartridge {
     }
 
     public boolean cpuCanWrite(int address) {
-        return mapper.cpuMapWrite(address) != -1;
+        return mapper.cpuMapWrite(address) != Integer.MAX_VALUE;
     }
 
     public boolean cpuCanRead(int address) {
-        return mapper.cpuMapRead(address) != -1;
+        return mapper.cpuMapRead(address) != Integer.MAX_VALUE;
     }
 
     public void cpuWrite(int address, int data) {
@@ -74,11 +74,11 @@ public class Cartridge {
     }
 
     public boolean ppuCanWrite(int address) {
-        return mapper.ppuMapWrite(address) != -1;
+        return mapper.ppuMapWrite(address) != Integer.MAX_VALUE;
     }
 
     public boolean ppuCanRead(int address) {
-        return mapper.ppuMapRead(address) != -1;
+        return mapper.ppuMapRead(address) != Integer.MAX_VALUE;
     }
 
     public void ppuWrite(int address, int data) {

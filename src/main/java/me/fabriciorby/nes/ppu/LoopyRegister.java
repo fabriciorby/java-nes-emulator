@@ -2,7 +2,7 @@ package me.fabriciorby.nes.ppu;
 
 public class LoopyRegister {
 
-    int loopyRegister;
+    int loopyRegister = 0x00;
 
     enum Loopy {
         COARSE_X(0b11111, 0), // 5 bits

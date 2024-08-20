@@ -18,8 +18,8 @@ public class Sprite {
     }
 
     public void setPixel(int x, int y, Color pixel) {
-        if (x >= width || y >= height || x < 0 || y < 0) return;
-        this.pixelArray[x][y] = pixel;
+        if(x >= 0 && x < width && y >= 0 && y < height)
+            this.pixelArray[x][y] = pixel;
     }
 
     public Color[][] getPixelArray() {

@@ -25,11 +25,13 @@ public class Ppu {
 
     LoopyRegister vRamAddress = new LoopyRegister();
     LoopyRegister tRamAddress = new LoopyRegister();
-    int fineX;
+    int fineX = 0x00;
 
-    public boolean nonMaskableInterrupt;
+    public boolean nonMaskableInterrupt = false;
 
     public void cpuWrite(int address, int data) {
+        assert(address < 65535);
+        assert(address >= 0);
 
         switch (address) {
             case 0x0000 -> { // Control
@@ -60,13 +62,15 @@ public class Ppu {
                     addressLatch = 1;
                 } else {
                     tRamAddress.loopyRegister = (tRamAddress.loopyRegister & 0xFF00) | data;
-                    vRamAddress = tRamAddress;
+                    vRamAddress.loopyRegister = tRamAddress.loopyRegister;
                     addressLatch = 0;
                 }
             }
             case 0x0007 -> { // PPU Data
                 ppuWrite(vRamAddress.loopyRegister, data);
-                vRamAddress.loopyRegister += (controlRegister.get(ControlRegister.Control.INCREMENT_MODE) != 0 ? 32 : 1);
+                vRamAddress.loopyRegister += (controlRegister.get(ControlRegister.Control.INCREMENT_MODE) > 0 ? 32 : 1);
+                assert(vRamAddress.loopyRegister < 65535);
+                assert(vRamAddress.loopyRegister >= 0);
             }
             default -> {
             }
@@ -75,6 +79,9 @@ public class Ppu {
     }
 
     public int cpuRead(int address, boolean readOnly) {
+        assert(address < 65535);
+        assert(address >= 0);
+
          readOnly = false;
         if (readOnly) {
 
@@ -100,7 +107,6 @@ public class Ppu {
                     statusRegister.setVerticalBlank(0);
                     addressLatch = 0;
                     yield data;
-
                 }
                 case 0x0003 -> 0; // OAM Address
                 case 0x0004 -> 0; // OAM Data
@@ -110,7 +116,9 @@ public class Ppu {
                     int data = ppuDataBuffer;
                     ppuDataBuffer = ppuRead(vRamAddress.loopyRegister);
                     if (vRamAddress.loopyRegister >= 0x3F00) data = ppuDataBuffer;
-                    vRamAddress.loopyRegister += (controlRegister.get(ControlRegister.Control.INCREMENT_MODE) != 0 ? 32 : 1);
+                    vRamAddress.loopyRegister += (controlRegister.get(ControlRegister.Control.INCREMENT_MODE) > 0 ? 32 : 1);
+                    assert(vRamAddress.loopyRegister < 65535);
+                    assert(vRamAddress.loopyRegister >= 0);
                    yield data;
                 }
                 default -> 0;
@@ -122,6 +130,8 @@ public class Ppu {
     }
 
     public void ppuWrite(int address, int data) {
+        assert(address < 65535);
+        assert(address >= 0);
 
         address &= 0x3FFF;
 
@@ -166,6 +176,9 @@ public class Ppu {
     }
 
     public int ppuRead(int address) {
+        assert(address < 65535);
+        assert(address >= 0);
+
         int data = 0x00;
         address &= 0x3FFF;
 
@@ -195,6 +208,10 @@ public class Ppu {
                         data = tableName[1][address & 0x03FF];
                     if (address >= 0x0C00 && address <= 0x0FFF)
                         data = tableName[1][address & 0x03FF];
+
+                    if (data != 0 && data != 32 && (fineX) != 0) {
+                        System.out.println((address & 0x03FF) + " :" + data);
+                    }
                 }
                 default -> {}
             }
@@ -227,70 +244,77 @@ public class Ppu {
     int bgShifterAttribLo = 0x0000;
     int bgShifterAttribHi = 0x0000;
 
+    Consumer<Ppu> incrementScrollX = ppu -> {
+        if (maskRegister.get(MaskRegister.Mask.RENDER_BACKGROUND) > 0 || maskRegister.get(MaskRegister.Mask.RENDER_SPRITES) > 0) {
+            if (vRamAddress.get(LoopyRegister.Loopy.COARSE_X) == 31) {
+                vRamAddress.set(LoopyRegister.Loopy.COARSE_X, 0b0);
+                vRamAddress.set(LoopyRegister.Loopy.NAMETABLE_X, ~vRamAddress.get(LoopyRegister.Loopy.NAMETABLE_X));
+            } else {
+                vRamAddress.set(LoopyRegister.Loopy.COARSE_X, vRamAddress.get(LoopyRegister.Loopy.COARSE_X) + 1);
+            }
+        }
+    };
+
+    Consumer<Ppu> incrementScrollY = ppu -> {
+        if (maskRegister.get(MaskRegister.Mask.RENDER_BACKGROUND) > 0 || maskRegister.get(MaskRegister.Mask.RENDER_SPRITES) > 0) {
+            if (vRamAddress.get(LoopyRegister.Loopy.FINE_Y) < 7) {
+                vRamAddress.set(LoopyRegister.Loopy.FINE_Y, vRamAddress.get(LoopyRegister.Loopy.FINE_Y) + 1);
+            } else {
+                vRamAddress.set(LoopyRegister.Loopy.FINE_Y, 0b0);
+                if (vRamAddress.get(LoopyRegister.Loopy.COARSE_Y) == 29) {
+                    vRamAddress.set(LoopyRegister.Loopy.COARSE_Y, 0b0);
+                    vRamAddress.set(LoopyRegister.Loopy.NAMETABLE_Y, ~vRamAddress.get(LoopyRegister.Loopy.NAMETABLE_Y));
+                } else if (vRamAddress.get(LoopyRegister.Loopy.COARSE_Y) == 31) {
+                    vRamAddress.set(LoopyRegister.Loopy.COARSE_Y, 0b0);
+                } else {
+                    vRamAddress.set(LoopyRegister.Loopy.COARSE_Y, vRamAddress.get(LoopyRegister.Loopy.COARSE_Y) + 1);
+                }
+            }
+        }
+    };
+
+    Consumer<Ppu> transferAddressX = ppu -> {
+        if (maskRegister.get(MaskRegister.Mask.RENDER_BACKGROUND) > 0 || maskRegister.get(MaskRegister.Mask.RENDER_SPRITES) > 0) {
+            vRamAddress.set(LoopyRegister.Loopy.NAMETABLE_X, tRamAddress.get(LoopyRegister.Loopy.NAMETABLE_X));
+            vRamAddress.set(LoopyRegister.Loopy.COARSE_X, tRamAddress.get(LoopyRegister.Loopy.COARSE_X));
+        }
+    };
+
+    Consumer<Ppu> transferAddressY = ppu -> {
+        if (maskRegister.get(MaskRegister.Mask.RENDER_BACKGROUND) > 0 || maskRegister.get(MaskRegister.Mask.RENDER_SPRITES) > 0) {
+            vRamAddress.set(LoopyRegister.Loopy.FINE_Y, tRamAddress.get(LoopyRegister.Loopy.FINE_Y));
+            vRamAddress.set(LoopyRegister.Loopy.NAMETABLE_Y, tRamAddress.get(LoopyRegister.Loopy.NAMETABLE_Y));
+            vRamAddress.set(LoopyRegister.Loopy.COARSE_Y, tRamAddress.get(LoopyRegister.Loopy.COARSE_Y));
+        }
+    };
+
+    Consumer<Ppu> loadBackgroundShifters = ppu -> {
+        bgShifterPatternLo = (bgShifterPatternLo & 0xFF00) | bgNextTileLsb;
+        assert(bgShifterPatternLo < 65535);
+        bgShifterPatternHi = (bgShifterPatternHi & 0xFF00) | bgNextTileMsb;
+        assert(bgShifterPatternHi < 65535);
+        bgShifterAttribLo = (bgShifterAttribLo & 0xFF00) | ((bgNextTileAttrib & 0b01) > 0 ? 0xFF : 0x00);
+        assert(bgShifterAttribLo < 65535);
+        bgShifterAttribHi = (bgShifterAttribHi & 0xFF00) | ((bgNextTileAttrib & 0b10) > 0 ? 0xFF : 0x00);
+        assert(bgShifterAttribHi < 65535);
+    };
+
+    Consumer<Ppu> updateShifters = ppu -> {
+        if (maskRegister.get(MaskRegister.Mask.RENDER_BACKGROUND) > 0) {
+            bgShifterPatternLo <<= 1;
+            bgShifterPatternHi <<= 1;
+            bgShifterAttribLo <<= 1;
+            bgShifterAttribHi <<= 1;
+            assert(bgShifterAttribHi < 65535 && bgShifterAttribHi >= 0);
+            assert(bgShifterAttribLo < 65535 && bgShifterAttribLo >= 0);
+            assert(bgShifterPatternHi < 65535 && bgShifterPatternHi >= 0);
+            assert(bgShifterPatternLo < 65535 && bgShifterPatternLo >= 0);
+        }
+    };
+
     public void clock() {
         //For more information about this shit go to
         // https://github.com/OneLoneCoder/olcNES/blob/master/Part%20%234%20-%20PPU%20Backgrounds/olc2C02.cpp
-
-        Consumer<Ppu> incrementScrollX = ppu -> {
-            if (maskRegister.get(MaskRegister.Mask.RENDER_BACKGROUND) != 0 || maskRegister.get(MaskRegister.Mask.RENDER_SPRITES) != 0) {
-                if (vRamAddress.get(LoopyRegister.Loopy.COARSE_X) == 31) {
-                    vRamAddress.set(LoopyRegister.Loopy.COARSE_X, 0b0);
-                    vRamAddress.set(LoopyRegister.Loopy.NAMETABLE_X, ~vRamAddress.get(LoopyRegister.Loopy.NAMETABLE_X));
-                } else {
-                    vRamAddress.set(LoopyRegister.Loopy.COARSE_X, vRamAddress.get(LoopyRegister.Loopy.COARSE_X) + 1);
-                }
-            }
-        };
-
-        Consumer<Ppu> incrementScrollY = ppu -> {
-            if (maskRegister.get(MaskRegister.Mask.RENDER_BACKGROUND) != 0 || maskRegister.get(MaskRegister.Mask.RENDER_SPRITES) != 0) {
-                if (vRamAddress.get(LoopyRegister.Loopy.FINE_Y) < 7) {
-                    vRamAddress.set(LoopyRegister.Loopy.FINE_Y, vRamAddress.get(LoopyRegister.Loopy.FINE_Y) + 1);
-                } else {
-                    vRamAddress.set(LoopyRegister.Loopy.FINE_Y, 0b0);
-                    if (vRamAddress.get(LoopyRegister.Loopy.COARSE_Y) == 29) {
-                        vRamAddress.set(LoopyRegister.Loopy.COARSE_Y, 0b0);
-                        vRamAddress.set(LoopyRegister.Loopy.NAMETABLE_Y, ~vRamAddress.get(LoopyRegister.Loopy.NAMETABLE_Y));
-                    } else if (vRamAddress.get(LoopyRegister.Loopy.COARSE_Y) == 31) {
-                        vRamAddress.set(LoopyRegister.Loopy.COARSE_Y, 0b0);
-                    } else {
-                        vRamAddress.set(LoopyRegister.Loopy.COARSE_Y, vRamAddress.get(LoopyRegister.Loopy.COARSE_Y) + 1);
-                    }
-                }
-            }
-        };
-
-        Consumer<Ppu> transferAddressX = ppu -> {
-            if (maskRegister.get(MaskRegister.Mask.RENDER_BACKGROUND) != 0 || maskRegister.get(MaskRegister.Mask.RENDER_SPRITES) != 0) {
-                vRamAddress.set(LoopyRegister.Loopy.NAMETABLE_X, tRamAddress.get(LoopyRegister.Loopy.NAMETABLE_X));
-                vRamAddress.set(LoopyRegister.Loopy.COARSE_X, tRamAddress.get(LoopyRegister.Loopy.COARSE_X));
-            }
-        };
-
-        Consumer<Ppu> transferAddressY = ppu -> {
-            if (maskRegister.get(MaskRegister.Mask.RENDER_BACKGROUND) != 0 || maskRegister.get(MaskRegister.Mask.RENDER_SPRITES) != 0) {
-                vRamAddress.set(LoopyRegister.Loopy.FINE_Y, tRamAddress.get(LoopyRegister.Loopy.FINE_Y));
-                vRamAddress.set(LoopyRegister.Loopy.NAMETABLE_Y, tRamAddress.get(LoopyRegister.Loopy.NAMETABLE_Y));
-                vRamAddress.set(LoopyRegister.Loopy.COARSE_Y, tRamAddress.get(LoopyRegister.Loopy.COARSE_Y));
-            }
-        };
-
-        Consumer<Ppu> loadBackgroundShifters = ppu -> {
-            bgShifterPatternLo = (bgShifterPatternLo & 0xFF00) | bgNextTileLsb;
-            bgShifterPatternHi = (bgShifterPatternHi & 0xFF00) | bgNextTileMsb;
-            bgShifterAttribLo = (bgShifterAttribLo & 0xFF00) | ((bgNextTileAttrib & 0b01) != 0 ? 0xFF : 0x00);
-            bgShifterAttribHi = (bgShifterAttribHi & 0xFF00) | ((bgNextTileAttrib & 0b10) != 0 ? 0xFF : 0x00);
-        };
-
-        Consumer<Ppu> updateShifters = ppu -> {
-            if (maskRegister.get(MaskRegister.Mask.RENDER_BACKGROUND) != 0) {
-                bgShifterPatternLo <<= 1;
-                bgShifterPatternHi <<= 1;
-                bgShifterAttribLo <<= 1;
-                bgShifterAttribHi <<= 1;
-            }
-        };
-
 
         if (scanline >= -1 && scanline < 240) {
             if (scanline == 0 && cycle == 0) {
@@ -305,6 +329,7 @@ public class Ppu {
                     case 0 -> {
                         loadBackgroundShifters.accept(this);
                         bgNextTileId = ppuRead(0x2000 | (vRamAddress.loopyRegister & 0x0FFF));
+                        assert(bgNextTileId < 255);
                     }
                     case 2 -> {
                         bgNextTileAttrib = ppuRead(0x23C0
@@ -312,19 +337,30 @@ public class Ppu {
                                 | (vRamAddress.get(LoopyRegister.Loopy.NAMETABLE_X) << 10)
                                 | ((vRamAddress.get(LoopyRegister.Loopy.COARSE_Y) >> 2) << 3)
                                 | (vRamAddress.get(LoopyRegister.Loopy.COARSE_X) >> 2));
-                        if ((vRamAddress.get(LoopyRegister.Loopy.COARSE_Y) & 0x02) != 0) bgNextTileAttrib >>= 4;
-                        if ((vRamAddress.get(LoopyRegister.Loopy.COARSE_X) & 0x02) != 0) bgNextTileAttrib >>= 2;
+                        assert(bgNextTileAttrib < 255);
+                        if ((vRamAddress.get(LoopyRegister.Loopy.COARSE_Y) & 0x02) > 0) bgNextTileAttrib >>= 4;
+                        assert(bgNextTileAttrib < 255);
+                        if ((vRamAddress.get(LoopyRegister.Loopy.COARSE_X) & 0x02) > 0) bgNextTileAttrib >>= 2;
+                        assert(bgNextTileAttrib < 255);
                         bgNextTileAttrib &= 0x03;
                     }
-                    case 4 -> bgNextTileLsb = ppuRead(
-                            (controlRegister.get(ControlRegister.Control.PATTERN_BACKGROUND) << 12 )
-                                    + (bgNextTileId << 4)
-                                    + vRamAddress.get(LoopyRegister.Loopy.FINE_Y));
+                    case 4 -> {
+                        bgNextTileLsb = ppuRead(
+                                (controlRegister.get(ControlRegister.Control.PATTERN_BACKGROUND) << 12)
+                                        + (bgNextTileId << 4)
+                                        + vRamAddress.get(LoopyRegister.Loopy.FINE_Y));
+                        assert((bgNextTileId << 4) >= 0);
+                        assert((bgNextTileId << 4) < 65535);
+                    }
 
-                    case 6 -> bgNextTileMsb = ppuRead(
-                            (controlRegister.get(ControlRegister.Control.PATTERN_BACKGROUND) << 12)
-                                    + (bgNextTileId << 4)
-                                    + (vRamAddress.get(LoopyRegister.Loopy.FINE_Y) + 8));
+                    case 6 -> {
+                        bgNextTileMsb = ppuRead(
+                                (controlRegister.get(ControlRegister.Control.PATTERN_BACKGROUND) << 12)
+                                        + (bgNextTileId << 4)
+                                        + (vRamAddress.get(LoopyRegister.Loopy.FINE_Y) + 8));
+                        assert((bgNextTileId << 4) >= 0);
+                        assert((bgNextTileId << 4) < 65535);
+                    }
 
                     case 7 -> incrementScrollX.accept(this);
                 }
@@ -338,6 +374,7 @@ public class Ppu {
             }
             if (cycle == 338 || cycle == 340) {
                 bgNextTileId = ppuRead(0x2000 | (vRamAddress.loopyRegister & 0x0FFF));
+                assert(bgNextTileId < 255);
             }
             if (scanline == -1  && cycle >= 280 && cycle < 305) {
                 transferAddressY.accept(this);
@@ -361,8 +398,10 @@ public class Ppu {
         int bgPixel = 0x00;
         int bgPalette = 0x00;
 
-        if (maskRegister.get(MaskRegister.Mask.RENDER_BACKGROUND) != 0) {
+        if (maskRegister.get(MaskRegister.Mask.RENDER_BACKGROUND) > 0) {
             int bitMux = (0x8000 >> fineX);
+            assert (bitMux >= 0);
+            assert (bitMux < 65535);
 
             int p0Pixel = (bgShifterPatternLo & bitMux) > 0 ? 1 : 0;
             int p1Pixel = (bgShifterPatternHi & bitMux) > 0 ? 1 : 0;
@@ -386,6 +425,7 @@ public class Ppu {
             {
                 scanline = -1;
                 frameComplete = true;
+                count++;
             }
         }
     }
@@ -405,6 +445,8 @@ public class Ppu {
                 for (int row = 0; row < 8; row++) {
                     int tileLow = ppuRead(index * 0x1000 + nOffset + row);
                     int tileHigh = ppuRead(index * 0x1000 + nOffset + row + 0x0008);
+                    assert (tileLow < 255);
+                    assert (tileHigh < 255);
                     for (int col = 0; col < 8; col++) {
                         int pixel = (tileLow & 0x01) + (tileHigh & 0x01);
                         tileLow >>= 1; tileHigh >>= 1;
@@ -434,5 +476,7 @@ public class Ppu {
     public Sprite getNameTable(int index) {
         return spriteNameTable[index];
     }
+
+    int count = 0;
 
 }
