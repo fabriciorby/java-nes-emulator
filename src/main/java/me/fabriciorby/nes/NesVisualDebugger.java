@@ -8,6 +8,7 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
 import javafx.event.Event;
+import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
@@ -61,6 +62,7 @@ public class NesVisualDebugger extends Application {
     private WritableImage renderPalette2;
     private final ImageView imagePalette1 = new ImageView();
     private final ImageView imagePalette2 = new ImageView();
+    private final Controller controller = new Controller();
 
     {
         Cartridge cartridge = new Cartridge("nestest.nes");
@@ -90,12 +92,33 @@ public class NesVisualDebugger extends Application {
             }
         });
 
+        setupController(scene);
         stage.setTitle("NES Debugger");
         stage.setScene(scene);
         stage.setResizable(false);
         stage.setWidth(1024);
         stage.setHeight(880);
         stage.show();
+    }
+
+    private EventHandler<KeyEvent> getControllerMapping(boolean value) {
+       return e -> {
+           switch (e.getCode()) {
+               case A -> controller.pressedKeys.put(Controller.Key.LEFT, value);
+               case S -> controller.pressedKeys.put(Controller.Key.DOWN, value);
+               case D -> controller.pressedKeys.put(Controller.Key.RIGHT, value);
+               case W -> controller.pressedKeys.put(Controller.Key.UP, value);
+               case H -> controller.pressedKeys.put(Controller.Key.START, value);
+               case J -> controller.pressedKeys.put(Controller.Key.SELECT, value);
+               case K -> controller.pressedKeys.put(Controller.Key.A, value);
+               case L -> controller.pressedKeys.put(Controller.Key.B, value);
+           }
+       };
+    }
+
+    private void setupController(Scene scene) {
+        scene.addEventFilter(KeyEvent.KEY_PRESSED, getControllerMapping(true));
+        scene.addEventFilter(KeyEvent.KEY_RELEASED, getControllerMapping(false));
     }
 
     private void setupSpritePalette() {
@@ -126,6 +149,7 @@ public class NesVisualDebugger extends Application {
                         fResidualTime +=  (1000 * (1.0f / 60.0f)) - fElapsedTime;
                         do { nes.clock(); } while (!nes.ppu.frameComplete);
                         nes.ppu.frameComplete = false;
+                        nes.controller[0] = controller.getByteCode();
                     }
                 }
                 refresh();

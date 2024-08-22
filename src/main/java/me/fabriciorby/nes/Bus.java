@@ -12,6 +12,8 @@ public class Bus {
     public Ppu ppu = new Ppu();
     public int[] cpuRam = new int[2048];
     private Cartridge cartridge;
+    public byte[] controller = new byte[2];
+    private byte[] controllerState = new byte[2];
 
     public Bus() {
         cpu.connectBus(this);
@@ -24,6 +26,8 @@ public class Bus {
             cpuRam[address & 0x07FF] = data;
         } else if (address >= 0x2000 && address <= 0x3FFF) {
             ppu.cpuWrite(address & 0x0007, data);
+        } else if (address >= 0x4016 && address <= 0x4017) {
+            controllerState[address & 0x0001] = controller[address & 0x0001];
         }
     }
 
@@ -34,6 +38,10 @@ public class Bus {
             return cpuRam[address & 0x07FF];
         } else if (address >= 0x2000 && address <= 0x3FFF) {
             return ppu.cpuRead(address & 0x0007, readOnly);
+        } else if (address >= 0x4016 && address <= 0x4017) {
+            int data = Byte.toUnsignedInt((byte) (controllerState[address & 0x0001] & 0x80)) > 0 ? 1 : 0;
+            controllerState[address & 0x0001] <<= 1;
+            return data;
         }
         return 0x00;
     }
