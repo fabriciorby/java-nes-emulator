@@ -406,7 +406,7 @@ public class Ppu {
                     int tileLow = ppuRead(index * 0x1000 + nOffset + row);
                     int tileHigh = ppuRead(index * 0x1000 + nOffset + row + 0x0008);
                     for (int col = 0; col < 8; col++) {
-                        int pixel = (tileLow & 0x01) + (tileHigh & 0x01);
+                        int pixel = ((tileLow & 0x01) << 1) | (tileHigh & 0x01);
                         tileLow >>= 1; tileHigh >>= 1;
                         spritePatternTable[index].setPixel(
                                 nTileX * 8 + (7 - col),
