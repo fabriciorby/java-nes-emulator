@@ -15,6 +15,13 @@ public class Bus {
     public byte[] controller = new byte[2];
     private byte[] controllerState = new byte[2];
 
+    private int dmaPage;
+    private int dmaAddress;
+    private int dmaData;
+
+    private boolean dmaTransfer;
+    private boolean dmaDummy;
+
     public Bus() {
         cpu.connectBus(this);
     }
@@ -26,6 +33,10 @@ public class Bus {
             cpuRam[address & 0x07FF] = data;
         } else if (address >= 0x2000 && address <= 0x3FFF) {
             ppu.cpuWrite(address & 0x0007, data);
+        } else if (address == 0x4014) {
+            dmaPage = data;
+            dmaAddress = 0x00;
+            dmaTransfer = true;
         } else if (address >= 0x4016 && address <= 0x4017) {
             controllerState[address & 0x0001] = controller[address & 0x0001];
         }
@@ -65,7 +76,27 @@ public class Bus {
     public void clock() {
         ppu.clock();
         if (clockCounter % 3 == 0) {
-            cpu.clock();
+            if (dmaTransfer) {
+                if (dmaDummy) {
+                    if (clockCounter % 2 == 1) {
+                        dmaDummy = false;
+                    }
+                } else {
+                    if (clockCounter % 2 == 0) {
+                        dmaData = cpuRead(dmaPage << 8 | dmaAddress);
+                    } else {
+                        ppu.OAM.setData(dmaData, dmaAddress);
+                        dmaAddress++;
+                        if (dmaAddress > 255) { //byte overflow: I simply don't exist
+                            dmaAddress = 0;
+                            dmaTransfer = false;
+                            dmaDummy = true;
+                        }
+                    }
+                }
+            } else {
+                cpu.clock();
+            }
         }
 
         if (ppu.nonMaskableInterrupt) {

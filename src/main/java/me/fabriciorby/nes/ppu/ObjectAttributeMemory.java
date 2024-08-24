@@ -31,7 +31,7 @@ public class ObjectAttributeMemory {
         }
     }
 
-    public int getData() {
+    public int getData(int address) {
         int index = address / 4;
         return switch (address % 4) {
             case 0 -> memoryEntries[index].y;
@@ -42,7 +42,15 @@ public class ObjectAttributeMemory {
         };
     }
 
+    public int getData() {
+        return getData(address);
+    }
+
     public void setData(int data) {
+        setData(data, address);
+    }
+
+    public void setData(int data, int address) {
         int index = address / 4;
         switch (address % 4) {
             case 0 -> memoryEntries[index].y = data;
@@ -52,5 +60,4 @@ public class ObjectAttributeMemory {
             default -> {}
         };
     }
-
 }

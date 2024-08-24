@@ -240,8 +240,17 @@ public class NesVisualDebugger extends Application {
         yRegister.setText(debugger.getYRegister());
         stack.setText(debugger.getStackPointer());
         listView.setItems(FXCollections.observableArrayList(
-                IntStream.range(cpu.programCounter - 13, cpu.programCounter + 16)
-                        .mapToObj(debugger::getInstruction).toList()));
+                IntStream.range(0, 26).mapToObj(i ->
+                    "%d: ( %d , %d ) ID: %d AT: %d".formatted( i,
+                            nes.ppu.OAM.getData(i * 4 + 3),
+                            nes.ppu.OAM.getData(i * 4 + 0),
+                            nes.ppu.OAM.getData(i * 4 + 1),
+                            nes.ppu.OAM.getData(i * 4 + 2))
+                ).toList()
+        ));
+//        listView.setItems(FXCollections.observableArrayList(
+//                IntStream.range(cpu.programCounter - 13, cpu.programCounter + 16)
+//                        .mapToObj(debugger::getInstruction).toList()));
         listView.getSelectionModel().select(13);
         listView.refresh();
         render();

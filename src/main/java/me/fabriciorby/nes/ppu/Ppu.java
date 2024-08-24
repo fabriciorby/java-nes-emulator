@@ -29,6 +29,9 @@ public class Ppu {
 
     public boolean nonMaskableInterrupt;
 
+    public ObjectAttributeMemory OAM = new ObjectAttributeMemory();
+    public byte oamAddress = 0x00;
+
     public void cpuWrite(int address, int data) {
 
         switch (address) {
@@ -39,10 +42,8 @@ public class Ppu {
             }
             case 0x0001 -> maskRegister.maskRegister = data; // Mask
             case 0x0002 -> {} //statusRegister.statusRegister = data; // Status
-            case 0x0003 -> {
-            } // OAM Address
-            case 0x0004 -> {
-            } // OAM Data
+            case 0x0003 -> OAM.setAddress(data); // OAM Address
+            case 0x0004 -> OAM.setData(data); // OAM Data
             case 0x0005 -> { // Scroll
                 if (addressLatch == 0) {
                     fineX = data & 0x07;
@@ -103,7 +104,7 @@ public class Ppu {
 
                 }
                 case 0x0003 -> 0; // OAM Address
-                case 0x0004 -> 0; // OAM Data
+                case 0x0004 -> OAM.getData(); // OAM Data
                 case 0x0005 -> 0; // Scroll
                 case 0x0006 -> 0; // PPU Address
                 case 0x0007 -> { // PPU Data
