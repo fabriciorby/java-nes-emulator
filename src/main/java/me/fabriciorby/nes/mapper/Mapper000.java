@@ -13,7 +13,7 @@ public class Mapper000 extends Mapper {
         if (address >= 0x8000 && address <= 0xFFFF) {
             return address & (PRGBanks > 1 ? 0x7FFF : 0x3FFF);
         }
-        return -1; //ugly workaround
+        return Integer.MIN_VALUE; //ugly workaround
     }
 
     @Override
@@ -21,7 +21,7 @@ public class Mapper000 extends Mapper {
         if (address >= 0x8000 && address <= 0xFFFF) {
             return address & (PRGBanks > 1 ? 0x7FFF : 0x3FFF);
         }
-        return -1; //ugly workaround
+        return Integer.MIN_VALUE; //ugly workaround
     }
 
     @Override
@@ -29,7 +29,7 @@ public class Mapper000 extends Mapper {
         if (address >= 0x0000 && address <= 0x1FFF) {
             return address;
         } else {
-            return -1; //ugly workaround
+            return Integer.MIN_VALUE; //ugly workaround
         }
     }
 
@@ -38,7 +38,7 @@ public class Mapper000 extends Mapper {
         if (address >= 0x0000 && address <= 0x1FFF && CHRBanks == 0) {
             return address;
         } else {
-            return -1; //ugly workaround
+            return Integer.MIN_VALUE; //ugly workaround
         }
     }
 }
