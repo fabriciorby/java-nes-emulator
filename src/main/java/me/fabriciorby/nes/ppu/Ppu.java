@@ -3,15 +3,18 @@ package me.fabriciorby.nes.ppu;
 import javafx.scene.paint.Color;
 import me.fabriciorby.nes.cartridge.Cartridge;
 
+import java.util.Arrays;
 import java.util.function.Consumer;
+
+import static me.fabriciorby.nes.utils.ByteUtils.flipByte;
 
 public class Ppu {
 
     private Cartridge cartridge;
 
-    int[][] tablePattern    = new int[2][4096]; //useless, but it does exist
-    public int[][] tableName       = new int[2][1024];
-    int[]   tablePalette    = new int[32];
+    int[][] tablePattern = new int[2][4096]; //useless, but it does exist
+    public int[][] tableName = new int[2][1024];
+    int[] tablePalette = new int[32];
 
     // https://www.nesdev.org/wiki/PPU_palettes#Palettes
     Color[] paletteColors = Colors.getColors();
@@ -30,7 +33,12 @@ public class Ppu {
     public boolean nonMaskableInterrupt;
 
     public ObjectAttributeMemory OAM = new ObjectAttributeMemory();
-    public byte oamAddress = 0x00;
+    public ObjectAttributeMemory.MemoryEntry[] spriteScanline = new ObjectAttributeMemory.MemoryEntry[8];
+    public byte spriteCount = 0x00;
+    private final int[] spriteShifterPatternLo = new int[8];
+    private final int[] spriteShifterPatternHi = new int[8];
+    private boolean isSpriteZeroHitPossible;
+    private boolean isSpriteZeroBeingRendered;
 
     public void cpuWrite(int address, int data) {
 
@@ -41,7 +49,7 @@ public class Ppu {
                 tRamAddress.set(LoopyRegister.Loopy.NAMETABLE_Y, controlRegister.get(ControlRegister.Control.NAMETABLE_Y));
             }
             case 0x0001 -> maskRegister.maskRegister = data; // Mask
-            case 0x0002 -> {} //statusRegister.statusRegister = data; // Status
+            case 0x0002 -> {} // Status
             case 0x0003 -> OAM.setAddress(data); // OAM Address
             case 0x0004 -> OAM.setData(data); // OAM Data
             case 0x0005 -> { // Scroll
@@ -71,12 +79,11 @@ public class Ppu {
             }
             default -> {
             }
-        };
-
+        }
     }
 
     public int cpuRead(int address, boolean readOnly) {
-         readOnly = false;
+        readOnly = false;
         if (readOnly) {
 
             return switch (address) {
@@ -101,7 +108,6 @@ public class Ppu {
                     statusRegister.setVerticalBlank(0);
                     addressLatch = 0;
                     yield data;
-
                 }
                 case 0x0003 -> 0; // OAM Address
                 case 0x0004 -> OAM.getData(); // OAM Data
@@ -112,7 +118,7 @@ public class Ppu {
                     ppuDataBuffer = ppuRead(vRamAddress.loopyRegister);
                     if (vRamAddress.loopyRegister >= 0x3F00) data = ppuDataBuffer;
                     vRamAddress.loopyRegister += (controlRegister.get(ControlRegister.Control.INCREMENT_MODE) != 0 ? 32 : 1);
-                   yield data;
+                    yield data;
                 }
                 default -> 0;
             };
@@ -134,26 +140,19 @@ public class Ppu {
             address &= 0x0FFF;
             switch (cartridge.mirror) {
                 case VERTICAL -> {
-                    if (address >= 0x0000 && address <= 0x03FF)
-                        tableName[0][address & 0x03FF] = data;
-                    if (address >= 0x0400 && address <= 0x07FF)
-                        tableName[1][address & 0x03FF] = data;
-                    if (address >= 0x0800 && address <= 0x0BFF)
-                        tableName[0][address & 0x03FF] = data;
-                    if (address >= 0x0C00 && address <= 0x0FFF)
-                        tableName[1][address & 0x03FF] = data;
+                    if (address >= 0x0000 && address <= 0x03FF) tableName[0][address & 0x03FF] = data;
+                    if (address >= 0x0400 && address <= 0x07FF) tableName[1][address & 0x03FF] = data;
+                    if (address >= 0x0800 && address <= 0x0BFF) tableName[0][address & 0x03FF] = data;
+                    if (address >= 0x0C00 && address <= 0x0FFF) tableName[1][address & 0x03FF] = data;
                 }
                 case HORIZONTAL -> {
-                    if (address >= 0x0000 && address <= 0x03FF)
-                        tableName[0][address & 0x03FF] = data;
-                    if (address >= 0x0400 && address <= 0x07FF)
-                        tableName[0][address & 0x03FF] = data;
-                    if (address >= 0x0800 && address <= 0x0BFF)
-                        tableName[1][address & 0x03FF] = data;
-                    if (address >= 0x0C00 && address <= 0x0FFF)
-                        tableName[1][address & 0x03FF] = data;
+                    if (address >= 0x0000 && address <= 0x03FF) tableName[0][address & 0x03FF] = data;
+                    if (address >= 0x0400 && address <= 0x07FF) tableName[0][address & 0x03FF] = data;
+                    if (address >= 0x0800 && address <= 0x0BFF) tableName[1][address & 0x03FF] = data;
+                    if (address >= 0x0C00 && address <= 0x0FFF) tableName[1][address & 0x03FF] = data;
                 }
-                default -> {}
+                default -> {
+                }
             }
         } else if (address >= 0x3F00 && address <= 0x3FFF) {
             address &= 0x001F;
@@ -178,26 +177,19 @@ public class Ppu {
             address &= 0x0FFF;
             switch (cartridge.mirror) {
                 case VERTICAL -> {
-                    if (address >= 0x0000 && address <= 0x03FF)
-                        data = tableName[0][address & 0x03FF];
-                    if (address >= 0x0400 && address <= 0x07FF)
-                        data = tableName[1][address & 0x03FF];
-                    if (address >= 0x0800 && address <= 0x0BFF)
-                        data = tableName[0][address & 0x03FF];
-                    if (address >= 0x0C00 && address <= 0x0FFF)
-                        data = tableName[1][address & 0x03FF];
+                    if (address >= 0x0000 && address <= 0x03FF) data = tableName[0][address & 0x03FF];
+                    if (address >= 0x0400 && address <= 0x07FF) data = tableName[1][address & 0x03FF];
+                    if (address >= 0x0800 && address <= 0x0BFF) data = tableName[0][address & 0x03FF];
+                    if (address >= 0x0C00 && address <= 0x0FFF) data = tableName[1][address & 0x03FF];
                 }
                 case HORIZONTAL -> {
-                    if (address >= 0x0000 && address <= 0x03FF)
-                        data = tableName[0][address & 0x03FF];
-                    if (address >= 0x0400 && address <= 0x07FF)
-                        data = tableName[0][address & 0x03FF];
-                    if (address >= 0x0800 && address <= 0x0BFF)
-                        data = tableName[1][address & 0x03FF];
-                    if (address >= 0x0C00 && address <= 0x0FFF)
-                        data = tableName[1][address & 0x03FF];
+                    if (address >= 0x0000 && address <= 0x03FF) data = tableName[0][address & 0x03FF];
+                    if (address >= 0x0400 && address <= 0x07FF) data = tableName[0][address & 0x03FF];
+                    if (address >= 0x0800 && address <= 0x0BFF) data = tableName[1][address & 0x03FF];
+                    if (address >= 0x0C00 && address <= 0x0FFF) data = tableName[1][address & 0x03FF];
                 }
-                default -> {}
+                default -> {
+                }
             }
         } else if (address >= 0x3F00 && address <= 0x3FFF) {
             address &= 0x001F;
@@ -290,6 +282,17 @@ public class Ppu {
                 bgShifterAttribLo <<= 1;
                 bgShifterAttribHi <<= 1;
             }
+
+            if ((maskRegister.get(MaskRegister.Mask.RENDER_SPRITES) > 0) && cycle >= 1 && cycle < 258) {
+                for (int i = 0; i < spriteCount; i++) {
+                    if (spriteScanline[i].x > 0) {
+                        spriteScanline[i].x--; //att
+                    } else {
+                        spriteShifterPatternLo[i] <<= 1;
+                        spriteShifterPatternHi[i] <<= 1;
+                    }
+                }
+            }
         };
 
 
@@ -299,6 +302,10 @@ public class Ppu {
             }
             if (scanline == -1 && cycle == 1) {
                 statusRegister.setVerticalBlank(0);
+                statusRegister.setSpriteOverflow(0);
+                statusRegister.setSpriteZeroHit(0);
+                Arrays.fill(spriteShifterPatternHi, 0);
+                Arrays.fill(spriteShifterPatternLo, 0);
             }
             if ((cycle >= 2 && cycle < 258) || (cycle >= 321 && cycle < 338)) {
                 updateShifters.accept(this);
@@ -318,14 +325,14 @@ public class Ppu {
                         bgNextTileAttrib &= 0x03;
                     }
                     case 4 -> bgNextTileLsb = ppuRead(
-                            (controlRegister.get(ControlRegister.Control.PATTERN_BACKGROUND) << 12 )
-                                    + (bgNextTileId << 4)
-                                    + vRamAddress.get(LoopyRegister.Loopy.FINE_Y));
+                                    (controlRegister.get(ControlRegister.Control.PATTERN_BACKGROUND) << 12)
+                                            + (bgNextTileId << 4)
+                                            + vRamAddress.get(LoopyRegister.Loopy.FINE_Y));
 
                     case 6 -> bgNextTileMsb = ppuRead(
-                            (controlRegister.get(ControlRegister.Control.PATTERN_BACKGROUND) << 12)
-                                    + (bgNextTileId << 4)
-                                    + (vRamAddress.get(LoopyRegister.Loopy.FINE_Y) + 8));
+                                    (controlRegister.get(ControlRegister.Control.PATTERN_BACKGROUND) << 12)
+                                            + (bgNextTileId << 4)
+                                            + (vRamAddress.get(LoopyRegister.Loopy.FINE_Y) + 8));
 
                     case 7 -> incrementScrollX.accept(this);
                 }
@@ -340,7 +347,89 @@ public class Ppu {
             if (cycle == 338 || cycle == 340) {
                 bgNextTileId = ppuRead(0x2000 | (vRamAddress.loopyRegister & 0x0FFF));
             }
-            if (scanline == -1  && cycle >= 280 && cycle < 305) {
+
+            //workaround render
+            if (cycle == 257 && scanline >= 0) {
+                for (int i = 0; i < spriteScanline.length; i++) {
+                    spriteScanline[i] = new ObjectAttributeMemory.MemoryEntry();
+                }
+                Arrays.fill(spriteShifterPatternLo, 0);
+                Arrays.fill(spriteShifterPatternHi, 0);
+                spriteCount = 0;
+                int count = 0;
+                isSpriteZeroHitPossible = false;
+                while (count < 64 && spriteCount < 9) {
+                    int diff = scanline - OAM.getObject(count).y;
+                    if (diff >= 0 && diff < (controlRegister.get(ControlRegister.Control.SPRITE_SIZE) > 0 ? 16 : 8)) {
+                        if (spriteCount < 8) {
+                            if (count == 0) {
+                                isSpriteZeroHitPossible = true;
+                            }
+                            spriteScanline[spriteCount] = OAM.getObject(count);
+                            spriteCount++;
+                        }
+                    }
+                    count++;
+                }
+                statusRegister.setSpriteOverflow(spriteCount > 8 ? 1 : 0);
+            }
+
+            if (cycle == 340) {
+                for (int i = 0; i < spriteCount; i++) {
+                    int spritePatternBitsLo, spritePatternBitsHi;
+                    int spritePatternAddressLo, spritePatternAddressHi;
+                    if (controlRegister.get(ControlRegister.Control.SPRITE_SIZE) == 0) {
+                        if ((spriteScanline[i].attribute & 0x80) == 0) {
+                            spritePatternAddressLo = (controlRegister.get(ControlRegister.Control.PATTERN_SPRITE) << 12)
+                                    | (spriteScanline[i].id << 4)
+                                    | (scanline - spriteScanline[i].y);
+                        } else {
+                            spritePatternAddressLo = (controlRegister.get(ControlRegister.Control.PATTERN_SPRITE) << 12)
+                                    | (spriteScanline[i].id << 4)
+                                    | (7 - (scanline - spriteScanline[i].y));
+                        }
+                    } else {
+                        if ((spriteScanline[i].attribute & 0x80) == 0) {
+                            if (scanline - spriteScanline[i].y < 8) {
+                                spritePatternAddressLo = ((spriteScanline[i].id & 0x01) << 12)
+                                        | ((spriteScanline[i].id & 0xFE) << 4)
+                                        | ((scanline - spriteScanline[i].y) & 0x07);
+                            } else {
+                                spritePatternAddressLo = ((spriteScanline[i].id & 0x01) << 12)
+                                        | (((spriteScanline[i].id & 0xFE) + 1) << 4)
+                                        | ((scanline - spriteScanline[i].y) & 0x07);
+                            }
+                        } else {
+                            if (scanline - spriteScanline[i].y < 8) {
+                                spritePatternAddressLo = ((spriteScanline[i].id & 0x01) << 12)
+                                        | (((spriteScanline[i].id & 0xFE) + 1) << 4)
+                                        | (7 - (scanline - spriteScanline[i].y) & 0x07);
+                            } else {
+                                spritePatternAddressLo = ((spriteScanline[i].id & 0x01) << 12)
+                                        | ((spriteScanline[i].id & 0xFE) << 4)
+                                        | (7 - (scanline - spriteScanline[i].y) & 0x07);
+                            }
+                        }
+                    }
+
+                    spritePatternAddressHi = spritePatternAddressLo + 8;
+
+                    spritePatternBitsLo = ppuRead(spritePatternAddressLo);
+                    spritePatternBitsHi = ppuRead(spritePatternAddressHi);
+
+                    if ((spriteScanline[i].attribute & 0x40) > 0) {
+                        spritePatternBitsLo = flipByte(spritePatternBitsLo);
+                        spritePatternBitsHi = flipByte(spritePatternBitsHi);
+                    }
+
+                    spriteShifterPatternLo[i] = spritePatternBitsLo;
+                    spriteShifterPatternHi[i] = spritePatternBitsHi;
+
+                }
+            }
+
+
+            if (scanline == -1 && cycle >= 280 && cycle < 305) {
                 transferAddressY.accept(this);
             }
 
@@ -374,17 +463,75 @@ public class Ppu {
             bgPalette = (p1Pal << 1) | p0Pal;
         }
 
-        spriteScreen.setPixel(cycle - 1, scanline, getColourFromPaletteRam(bgPalette, bgPixel));
+        int fgPixel = 0x00;
+        int fgPalette = 0x00;
+        int fgPriority = 0x00;
 
-//        spriteScreen.setPixel(cycle - 1, scanline, paletteColors[(Math.random() > 0.5) ? 0x3F : 0x30]);
+        if (maskRegister.get(MaskRegister.Mask.RENDER_SPRITES) > 0) {
+            isSpriteZeroBeingRendered = false;
+            for (int i = 0; i < spriteCount; i++) {
+                if (spriteScanline[i].x == 0) {
+                    int fgPixelLo = (spriteShifterPatternLo[i] & 0x80) > 0 ? 1 : 0;
+                    int fgPixelHi = (spriteShifterPatternHi[i] & 0x80) > 0 ? 1 : 0;
+                    fgPixel = (fgPixelHi << 1) | fgPixelLo;
+
+                    fgPalette = (spriteScanline[i].attribute & 0x03) + 0x04;
+                    fgPriority = (spriteScanline[i].attribute & 0x20) == 0 ? 1 : 0;
+
+                    if (fgPixel != 0) {
+                        if (i == 0) {
+                            isSpriteZeroBeingRendered = true;
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
+        int pixel = 0x00;   // The FINAL Pixel...
+        int palette = 0x00; // The FINAL Palette...
+
+        if (bgPixel == 0 && fgPixel == 0) {
+            pixel = 0x00;
+            palette = 0x00;
+        } else if (bgPixel == 0 && fgPixel > 0) {
+            pixel = fgPixel;
+            palette = fgPalette;
+        } else if (bgPixel > 0 && fgPixel == 0) {
+            pixel = bgPixel;
+            palette = bgPalette;
+        } else if (bgPixel > 0 && fgPixel > 0) {
+            if (fgPriority > 0) {
+                pixel = fgPixel;
+                palette = fgPalette;
+            } else {
+                pixel = bgPixel;
+                palette = bgPalette;
+            }
+
+            if (isSpriteZeroHitPossible && isSpriteZeroBeingRendered) {
+                if ((maskRegister.get(MaskRegister.Mask.RENDER_BACKGROUND) > 0) & (maskRegister.get(MaskRegister.Mask.RENDER_SPRITES) > 0)) {
+                    if (~(maskRegister.get(MaskRegister.Mask.RENDER_BACKGROUND_LEFT) | maskRegister.get(MaskRegister.Mask.RENDER_SPRITES_LEFT)) > 0) {
+                        if (cycle >= 9 && cycle < 258) {
+                            statusRegister.setSpriteZeroHit(1);
+                        }
+                    } else {
+                        if (cycle >= 1 && cycle < 258) {
+                            statusRegister.setSpriteZeroHit(1);
+                        }
+                    }
+                }
+            }
+        }
+
+
+        spriteScreen.setPixel(cycle - 1, scanline, getColourFromPaletteRam(palette, pixel));
 
         cycle++;
-        if (cycle >= 341)
-        {
+        if (cycle >= 341) {
             cycle = 0;
             scanline++;
-            if (scanline >= 261)
-            {
+            if (scanline >= 261) {
                 scanline = -1;
                 frameComplete = true;
             }
@@ -392,8 +539,8 @@ public class Ppu {
     }
 
     Sprite spriteScreen = new Sprite(256, 240);
-    Sprite[] spriteNameTable = { new Sprite(256, 240), new Sprite(256, 240) };
-    Sprite[] spritePatternTable = { new Sprite(128, 128), new Sprite(128, 128) };
+    Sprite[] spriteNameTable = {new Sprite(256, 240), new Sprite(256, 240)};
+    Sprite[] spritePatternTable = {new Sprite(128, 128), new Sprite(128, 128)};
 
     public Sprite getScreen() {
         return spriteScreen;
@@ -408,12 +555,10 @@ public class Ppu {
                     int tileHigh = ppuRead(index * 0x1000 + nOffset + row + 0x0008);
                     for (int col = 0; col < 8; col++) {
                         int pixel = ((tileLow & 0x01) << 1) | (tileHigh & 0x01);
-                        tileLow >>= 1; tileHigh >>= 1;
-                        spritePatternTable[index].setPixel(
-                                nTileX * 8 + (7 - col),
-                                nTileY * 8 + row,
-                                getColourFromPaletteRam(palette, pixel)
-                        );
+                        tileLow >>= 1;
+                        tileHigh >>= 1;
+                        spritePatternTable[index].setPixel(nTileX * 8 + (7 - col),
+                                nTileY * 8 + row, getColourFromPaletteRam(palette, pixel));
                     }
                 }
             }
@@ -423,17 +568,32 @@ public class Ppu {
     }
 
     public Color getColourFromPaletteRam(int palette, int pixel) {
-        // This is a convenience function that takes a specified palette and pixel
-        // index and returns the appropriate screen colour.
-        // "0x3F00"       - Offset into PPU addressable range where palettes are stored
-        // "palette << 2" - Each palette is 4 bytes in size
-        // "pixel"        - Each pixel index is either 0, 1, 2 or 3
-        // "& 0x3F"       - Stops us reading beyond the bounds of the palScreen array
         return paletteColors[ppuRead(0x3F00 + (palette << 2) + pixel) & 0x3F];
     }
 
     public Sprite getNameTable(int index) {
         return spriteNameTable[index];
+    }
+
+    public void reset() {
+        fineX = 0;
+        addressLatch = 0;
+        ppuDataBuffer = 0;
+        scanline = 0;
+        cycle = 0;
+        bgNextTileId = 0;
+        bgNextTileAttrib = 0;
+        bgNextTileLsb = 0;
+        bgNextTileMsb = 0;
+        bgShifterPatternLo = 0;
+        bgShifterPatternHi = 0;
+        bgShifterAttribLo = 0;
+        bgShifterAttribHi = 0;
+        statusRegister.statusRegister = 0;
+        maskRegister.maskRegister = 0;
+        controlRegister.controlRegister = 0;
+        vRamAddress.loopyRegister = 0;
+        tRamAddress.loopyRegister = 0;
     }
 
 }

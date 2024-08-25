@@ -31,6 +31,15 @@ public class ObjectAttributeMemory {
         }
     }
 
+    public MemoryEntry getObject(int index) {
+        var copy = new MemoryEntry();
+        copy.y = memoryEntries[index].y;
+        copy.id = memoryEntries[index].id;
+        copy.attribute = memoryEntries[index].attribute;
+        copy.x = memoryEntries[index].x;
+        return copy;
+    }
+
     public int getData(int address) {
         int index = address / 4;
         return switch (address % 4) {
