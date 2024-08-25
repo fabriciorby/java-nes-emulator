@@ -52,26 +52,12 @@ public class Cpu {
         }
     }
 
-    public int byteInc(int byteValue) {
-        return applyByteOverflow(byteValue + 1);
-    }
-
-    public int byteDec(int byteValue) {
-        return applyByteOverflow(byteValue - 1);
-    }
-
-    private int applyByteOverflow(int byteValue) {
-        //ugly way of dealing with overflow
-        if (byteValue < 0) return byteValue + 256;
-        if (byteValue > 255) return byteValue - 256;
-        return byteValue;
-    }
-
     public void clock() {
         if (cycles == 0) {
             Debugger debugger = new Debugger(this);
             operationCode = read(programCounter);
             programCounter++;
+            programCounter &= 0xFFFF;
             setFlag(UNUSED, true);
             cycles += lookupInstructions[operationCode].runAndGetCycles();
 
@@ -149,10 +135,14 @@ public class Cpu {
     int AB(int register) {
         int low = read(programCounter);
         programCounter++;
+        programCounter &= 0xFFFF;
         int high = read(programCounter);
         programCounter++;
+        programCounter &= 0xFFFF;
         addressAbsolute = (high << 8) | low;
         addressAbsolute += register;
+        addressAbsolute &= 0xFFFF;
+
         if ((addressAbsolute & 0xFF00) != (high << 8)) {
             return 1;
         } else {
@@ -167,12 +157,14 @@ public class Cpu {
 
     int IMM() {
         addressAbsolute = programCounter++;
+        programCounter &= 0xFFFF;
         return 0;
     }
 
     int REL() {
         addressRelative = (byte) read(programCounter);
         programCounter++;
+        programCounter &= 0xFFFF;
         if ((addressRelative & 0x80) != 0)
             addressRelative |= 0xFF00;
         return 0;
@@ -181,8 +173,10 @@ public class Cpu {
     int IND() {
         int low = read(programCounter);
         programCounter++;
+        programCounter &= 0xFFFF;
         int high = read(programCounter);
         programCounter++;
+        programCounter &= 0xFFFF;
 
         int pointer = (high << 8) | low;
         addressAbsolute = (read(pointer + 1) << 8) | read(pointer);
@@ -192,9 +186,10 @@ public class Cpu {
     int IZX() {
         int address = read(programCounter);
         programCounter++;
+        programCounter &= 0xFFFF;
 
-        int low = read(address + xRegister) & 0x00FF;
-        int high = read(address + byteInc(xRegister)) & 0x00FF;
+        int low = read((address + (xRegister & 0xFF)) & 0xFFFF) & 0x00FF;
+        int high = read((address + (xRegister & 0xFF) + 1) & 0xFFFF) & 0x00FF;
 
         addressAbsolute = (high << 8) | low;
         return 0;
@@ -203,12 +198,14 @@ public class Cpu {
     int IZY() {
         int address = read(programCounter);
         programCounter++;
+        programCounter &= 0xFFFF;
 
         int low = read(address & 0x00FF);
-        int high = read((byteInc(address)) & 0x00FF);
+        int high = read((address + 1) & 0x00FF);
 
         addressAbsolute = (high << 8) | low;
         addressAbsolute += yRegister;
+        addressAbsolute &= 0xFFFF;
 
         if ((addressAbsolute & 0xFF00) != (high << 8)) {
             return 1;
@@ -290,6 +287,7 @@ public class Cpu {
         if (getBooleanFlag(statusRegister) == flag) {
             cycles++;
             addressAbsolute = programCounter + addressRelative;
+            addressAbsolute &= 0xFFFF;
             if ((addressAbsolute & 0xFF00) != (programCounter & 0xFF00)) {
                 cycles++;
             }
@@ -325,6 +323,7 @@ public class Cpu {
 
     int BRK() {
         programCounter++;
+        programCounter &= 0xFFFF;
         setFlag(DISABLE_INTERRUPTS, true);
         write(0x0100 + stackPointer, (programCounter >> 8) & 0x00FF);
         stackPointer--;
@@ -399,12 +398,14 @@ public class Cpu {
     } // Decrement Memory by One
 
     int DEX() {
-        xRegister = byteDec(xRegister);
+        xRegister--;
+        xRegister &= 0xFF;
         return DE(xRegister);
     } // Decrement Index X by One
 
     int DEY() {
-        yRegister = byteDec(yRegister);
+        yRegister--;
+        yRegister &= 0xFF;
         return DE(yRegister);
     } // Decrement Index Y by One
 
@@ -432,12 +433,14 @@ public class Cpu {
     } // Increment Memory by One
 
     int INX() {
-        xRegister = byteInc(xRegister);
+        xRegister = xRegister + 1;
+        xRegister &= 0xFF;
         return IN(xRegister);
     } // Increment Index X by One
 
     int INY() {
-        yRegister = byteInc(yRegister);
+        yRegister = yRegister + 1;
+        yRegister &= 0xFF;
         return IN(yRegister);
     } // Increment Index Y by One
 
@@ -454,6 +457,7 @@ public class Cpu {
 
     int JSR() {
         programCounter--;
+        programCounter &= 0xFFFF;
         write(0x0100 + stackPointer, (programCounter >> 8) & 0x00FF);
         stackPointer--;
         write(0x0100 + stackPointer, programCounter & 0x00FF);
@@ -588,6 +592,7 @@ public class Cpu {
         stackPointer++;
         programCounter |= read(0x0100 + stackPointer) << 8;
         programCounter++;
+        programCounter &= 0xFFFF;
         return 0;
     } // Return from Subroutine
 
