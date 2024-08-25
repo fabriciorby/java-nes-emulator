@@ -195,15 +195,7 @@ public class NesVisualDebugger extends Application {
         Button clockButton = new Button("Clock");
         Button resetButton = new Button("Reset");
         resetButton.setOnAction(event -> reset());
-        clockButton.setOnAction(event -> {
-            for (int y = 0; y < 30; y++) {
-                for (int x = 0; x < 32; x++) {
-                    System.out.print(Integer.toHexString(nes.ppu.tableName[0][y * 32 + x]));
-                }
-                System.out.println();
-            }
-            clock();
-        });
+        clockButton.setOnAction(event -> clock());
         resetButton.addEventFilter(KeyEvent.KEY_PRESSED, Event::consume);
         clockButton.addEventFilter(KeyEvent.KEY_PRESSED, Event::consume);
         buttonBar.getButtons().addAll(clockButton, resetButton);
@@ -239,18 +231,22 @@ public class NesVisualDebugger extends Application {
         xRegister.setText(debugger.getXRegister());
         yRegister.setText(debugger.getYRegister());
         stack.setText(debugger.getStackPointer());
-        listView.setItems(FXCollections.observableArrayList(
-                IntStream.range(0, 26).mapToObj(i ->
-                    "%d: ( %d , %d ) ID: %d AT: %d".formatted( i,
-                            nes.ppu.OAM.getData(i * 4 + 3),
-                            nes.ppu.OAM.getData(i * 4 + 0),
-                            nes.ppu.OAM.getData(i * 4 + 1),
-                            nes.ppu.OAM.getData(i * 4 + 2))
-                ).toList()
-        ));
+
+        //OAM
 //        listView.setItems(FXCollections.observableArrayList(
-//                IntStream.range(cpu.programCounter - 13, cpu.programCounter + 16)
-//                        .mapToObj(debugger::getInstruction).toList()));
+//                IntStream.range(0, 26).mapToObj(i ->
+//                    "%d: ( %d , %d ) ID: %d AT: %d".formatted( i,
+//                            nes.ppu.OAM.getData(i * 4 + 3),
+//                            nes.ppu.OAM.getData(i * 4 + 0),
+//                            nes.ppu.OAM.getData(i * 4 + 1),
+//                            nes.ppu.OAM.getData(i * 4 + 2))
+//                ).toList()
+//        ));
+
+        //Instructions
+        listView.setItems(FXCollections.observableArrayList(
+                IntStream.range(cpu.programCounter - 13, cpu.programCounter + 16)
+                        .mapToObj(debugger::getInstruction).toList()));
         listView.getSelectionModel().select(13);
         listView.refresh();
         render();
