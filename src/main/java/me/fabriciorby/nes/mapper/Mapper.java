@@ -14,5 +14,6 @@ public abstract class Mapper {
     public abstract int cpuMapWrite(int address);
     public abstract int ppuMapRead(int address);
     public abstract int ppuMapWrite(int address);
+    public abstract void reset();
 
 }

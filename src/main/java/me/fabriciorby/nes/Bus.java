@@ -67,9 +67,9 @@ public class Bus {
     }
 
     public void reset() {
-//        cartridge.reset();
+        cartridge.reset();
         cpu.reset();
-//        ppu.reset();
+        ppu.reset();
         clockCounter = 0;
     }
 

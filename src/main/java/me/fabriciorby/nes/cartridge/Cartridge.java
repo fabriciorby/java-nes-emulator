@@ -91,4 +91,8 @@ public class Cartridge {
         return Byte.toUnsignedInt(CHR[mappedAddress]);
     }
 
+   public void reset() {
+        mapper.reset();
+   }
+
 }

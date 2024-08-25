@@ -41,4 +41,9 @@ public class Mapper000 extends Mapper {
             return Integer.MIN_VALUE; //ugly workaround
         }
     }
+
+    @Override
+    public void reset() {
+
+    }
 }
